@@ -67,8 +67,24 @@ select,input[type=number]{width:100%;padding:7px;border:1px solid var(--line);bo
 .btn:hover{background:var(--bg)}
 .btn:disabled{opacity:.5;cursor:default}
 code{font-size:12px}
+.tabs{position:sticky;top:0;z-index:1000;background:var(--bg);border-bottom:1px solid var(--line)}
+.tabs-inner{max-width:1240px;margin:auto;padding:0 16px;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.tabs-inner::-webkit-scrollbar{display:none}
+.tabs a{padding:12px 14px;color:var(--muted);text-decoration:none;font-weight:600;font-size:14px;white-space:nowrap;border-bottom:3px solid transparent}
+.tabs a:hover{color:var(--ink)}
+.tabs a.on{color:var(--accent);border-bottom-color:var(--accent)}
+.view{display:none}
+.view.on{display:block}
+.app-card{padding:0;overflow:hidden}
+.app-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line)}
+#appWrap{position:relative;height:calc(100vh - 150px);min-height:640px}
+#appWrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
+#appLoading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}
 footer{max-width:1240px;margin:auto;padding:0 16px 40px;color:var(--muted);font-size:13px}
 a{color:var(--blue)}
+a.btn{text-decoration:none;display:inline-block}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff!important;font-weight:600;padding:10px 16px}
+.btn-primary:hover{filter:brightness(1.08);background:var(--accent)}
 .dl{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
 .dl span:first-child{color:var(--muted)}
 </style>
@@ -77,9 +93,18 @@ a{color:var(--blue)}
 <header>
   <h1>Rougeole en Afrique – surveillance et prédiction des flambées</h1>
   <p id="sub">Chargement…</p>
-  <p class="note" style="margin-top:6px">Version complète avec import de vos données par district : <a href="https://apo1024-measles-outbreak-africa-appstreamlit-app-wnb8pu.streamlit.app/">application interactive Streamlit</a>.</p>
 </header>
+<nav class="tabs" aria-label="Sections">
+  <div class="tabs-inner" role="tablist">
+    <a href="#tableau" role="tab" data-v="tableau">Tableau de bord</a>
+    <a href="#analyses" role="tab" data-v="analyses">Analyses croisées</a>
+    <a href="#districts" role="tab" data-v="districts">Districts &amp; localités</a>
+    <a href="#application" role="tab" data-v="application">Application avancée</a>
+    <a href="#methode" role="tab" data-v="methode">Méthode</a>
+  </div>
+</nav>
 <main>
+<div class="view" data-view="tableau">
   <section class="kpis" id="kpis"></section>
 
   <section class="grid">
@@ -123,7 +148,9 @@ a{color:var(--blue)}
     </div>
   </section>
 
-  <section class="card" style="margin-top:16px" id="cross">
+</div>
+<div class="view" data-view="analyses">
+  <section class="card" id="cross">
     <h2>Analyses croisées entre pays</h2>
     <p class="note">Croisez deux variables (une année ou une moyenne sur plusieurs années). Corrélations écologiques entre pays : pas d'inférence causale individuelle.</p>
     <div class="ctrl">
@@ -141,7 +168,9 @@ a{color:var(--blue)}
     </div>
   </section>
 
-  <section class="card" style="margin-top:16px" id="districts">
+</div>
+<div class="view" data-view="districts">
+  <section class="card" id="districts-card">
     <h2>Districts et localités</h2>
     <p class="note">Limites infranationales recherchées pour les 54 pays (geoBoundaries : limites humanitaires OCHA COD-AB, sinon gbOpen) et villes et villages de plus de 1 000 habitants (GeoNames). Les fichiers KML sont générés dans votre navigateur.</p>
     <div class="ctrl">
@@ -157,11 +186,65 @@ a{color:var(--blue)}
           <button class="btn" id="dLoc">Localités (KML)</button>
         </div>
         <p class="note" id="dInfo"></p>
-        <p class="note">Surveillance par district avec vos propres données (rapprochement des noms, seuils, alertes) : application Python, onglet « Districts &amp; localités », ou commande <code>python -m measles_predict districts</code>.</p></div>
+      </div>
+    </div>
+  </section>
+  <section class="card" id="survCard" style="margin-top:16px">
+    <h2>Surveillance par district avec vos données</h2>
+    <p class="note">Importez un fichier CSV ou Excel de cas par district (colonnes : district, cas et, facultativement, période AAAA-MM et population). Le fichier reste dans votre navigateur : rien n'est envoyé sur Internet. Les noms sont rapprochés automatiquement des districts du pays sélectionné ci-dessus.</p>
+    <div class="ctrl">
+      <label>Fichier <input type="file" id="sFile" accept=".csv,.txt,.xlsx,.xls"></label>
+      <label class="chk"><button class="btn" id="sDemo" type="button">Charger l'exemple simulé (Niger)</button></label>
+      <label class="chk"><button class="btn" id="sTpl" type="button">Modèle à remplir (CSV)</button></label>
+    </div>
+    <div id="sCols" style="display:none;margin-top:10px">
+      <div class="ctrl">
+        <label>Colonne district <select id="sName"></select></label>
+        <label>Colonne cas <select id="sCases"></select></label>
+        <label>Colonne période <select id="sPer"></select></label>
+        <label>Colonne population <select id="sPop"></select></label>
+      </div>
+      <div class="ctrl" style="margin-top:8px">
+        <label>Tolérance des noms <input type="range" id="sCut" min="0.6" max="1" step="0.02" value="0.82"> <b id="sCutV">0,82</b></label>
+        <label>Fenêtre de référence (périodes) <input type="number" id="sWin" min="6" max="104" value="24"></label>
+        <label>Écarts-types <input type="number" id="sK" min="1" max="3" step="0.5" value="2"></label>
+        <label>Seuil minimal (cas) <input type="number" id="sMin" min="1" max="50" value="5"></label>
+      </div>
+    </div>
+    <p class="note" id="sMsg"></p>
+    <div id="sOut" style="display:none">
+      <div class="kpis" id="sKpis"></div>
+      <div class="grid">
+        <div><div class="tablewrap" style="max-height:360px"><table id="sTab"></table></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button class="btn" id="sExport" type="button">Exporter les alertes (CSV)</button>
+            <button class="btn" id="sKmlRes" type="button">Districts avec statut (KML)</button>
+          </div>
+          <details style="margin-top:10px"><summary class="note">Vérifier le rapprochement des noms</summary><div class="tablewrap" style="max-height:220px"><table id="sMatch"></table></div></details></div>
+        <div><label for="sSel">Courbe épidémique du district</label><select id="sSel"></select><canvas id="sChart" height="230"></canvas></div>
+      </div>
     </div>
   </section>
 
-  <section class="card" style="margin-top:16px">
+</div>
+<div class="view" data-view="application">
+  <section class="card">
+    <h2>Application avancée</h2>
+    <p>Tout ce qui est utile au quotidien est sur cette page : prévisions, fiches pays, calculateur, analyses croisées, districts, localités et
+      <b>surveillance par district avec vos données</b>. L'application avancée ajoute :</p>
+    <ul>
+      <li>le simulateur avec les deux modèles (A et B) ;</li>
+      <li>les analyses croisées détaillées : matrice de corrélation, carte bivariée, comparaison de groupes ;</li>
+      <li>les niveaux ADM1 à ADM4 et l'import de vos propres limites (zones ou aires de santé) ;</li>
+      <li>les performances détaillées des modèles.</li>
+    </ul>
+    <p><a class="btn btn-primary" href="https://apo1024-measles-outbreak-africa-appstreamlit-app-wnb8pu.streamlit.app/" target="_blank" rel="noopener">Ouvrir l'application avancée ↗</a></p>
+    <p class="note">Elle s'ouvre dans un nouvel onglet : l'hébergeur (Streamlit Community Cloud) n'autorise pas son affichage complet à l'intérieur d'une autre page.
+      Après quelques jours sans visite, son premier chargement peut prendre environ 30 secondes.</p>
+  </section>
+</div>
+<div class="view" data-view="methode">
+  <section class="card">
     <h2>Méthode en bref</h2>
     <p><b>Données</b> : surveillance mensuelle provisoire de l'OMS (cas cliniques, épi-liés et confirmés), couverture
       vaccinale WUENIC (MCV1, MCV2), indicateurs de la Banque mondiale, limites geoBoundaries (KML).
@@ -171,10 +254,11 @@ a{color:var(--blue)}
       <b>Modèle B</b> : XGBoost. Validation temporelle 2023-2026 : AUC 0,82 (A), 0,84 (B), 0,84 (ensemble).</p>
     <p class="note">Outil de recherche : il ne remplace ni l'investigation de terrain ni le jugement des autorités sanitaires.</p>
   </section>
+</div>
 </main>
 <footer>
   Miracle Destine Apollon, épidémiologiste de terrain – Chicago, IL (USA) – <a href="mailto:info@idreamlore.com">info@idreamlore.com</a> ·
-  <a href="https://apo1024-measles-outbreak-africa-appstreamlit-app-wnb8pu.streamlit.app/">Application interactive (analyses croisées, districts, simulateur)</a> · <a href="https://github.com/apo1024/measles-outbreak-africa">Code source et documentation</a> · Licence MIT (code) ; données : OMS, Banque mondiale, geoBoundaries.
+  <a href="#application">Application avancée</a> · <a href="https://github.com/apo1024/measles-outbreak-africa">Code source et documentation</a> · Licence MIT (code) ; données : OMS, Banque mondiale, geoBoundaries.
 </footer>
 <script>
 const $ = s => document.querySelector(s);
@@ -192,7 +276,7 @@ Promise.all(["data/forecast.json","data/history.json","data/model_a.json","data/
   kpis(); drawMap(); table(); calculator();
   const first = [...F.forecast].filter(r=>r.p_ensemble!=null).sort((x,y)=>y.p_ensemble-x.p_ensemble)[0];
   if (first) detail(first.iso3);
-  initCross(); initDistricts();
+  initCross(); initDistricts(); initSurv();
 }).catch(e => { $("#sub").textContent = "Erreur de chargement des données : " + e; });
 
 function kpis(){
@@ -385,12 +469,14 @@ function loadDistricts(){
   $("#dInv").innerHTML=`<thead><tr><th>Niveau</th><th>Unités</th><th>Source</th><th>Fichier</th></tr></thead><tbody>`+
     rows.map(r=>`<tr><td>${LV[r.level]||r.level}</td><td>${(r.n_units||0).toLocaleString("fr-FR")}</td><td>${(r.source||"").slice(0,26)}</td><td>${r.url?`<a href="${r.url}" target="_blank" rel="noopener">GeoJSON</a>`:"boutons"}</td></tr>`).join("")+"</tbody>";
   if(dLayer){dmap.removeLayer(dLayer);dLayer=null;} dGeo=null;
+  if(typeof S!=="undefined" && S.statusLayer){dmap.removeLayer(S.statusLayer);S.statusLayer=null;}
   fetch(`geo/ADM2/${iso}.geojson`).then(r=>r.ok?r.json():null).catch(()=>null).then(g=>{dGeo=g;
     if(g){dLayer=L.geoJSON(g,{style:{color:"#7a2e1f",weight:1,fillColor:"#e9b7a8",fillOpacity:.25},
       onEachFeature:(f,l)=>l.bindTooltip(f.properties.unit_name,{sticky:true})}).addTo(dmap); dmap.fitBounds(dLayer.getBounds());
       $("#dInfo").textContent=`${g.features.length} districts affichés (géométrie simplifiée pour le web ; fichiers complets via le lien GeoJSON).`;}
     else{ $("#dInfo").textContent="Pas de limites ADM2 pour ce pays."; const f=gj.getLayers().find(l=>l.feature.properties.iso3===iso); if(f) dmap.fitBounds(f.getBounds()); }
-    $("#dKml").disabled=$("#dGeo").disabled=!g;});
+    $("#dKml").disabled=$("#dGeo").disabled=!g;
+    if(typeof S!=="undefined" && S.rows.length) runSurv();});
   fetch(`geo/localites/${iso}.json`).then(r=>r.ok?r.json():[]).catch(()=>[]).then(l=>{dLoc=l;drawLocalities();});
 }
 function drawLocalities(){
@@ -399,6 +485,124 @@ function drawLocalities(){
     .bindTooltip(`${n} – ${p.toLocaleString("fr-FR")} hab.`))).addTo(dmap);
 }
 
+
+// ===================================================== surveillance par district (dans le navigateur)
+const STATUS_COL = {"Flambée":"#c0392b","Vigilance":"#f39c12","Normal":"#7fbf7b","Historique insuffisant":"#9aa1ae"};
+const STOP = /\b(district|districts|zone|zones|de|du|des|la|le|les|sante|health|province|region|regional|prefecture|commune|county|lga|ds|zs|area|sub|state|municipality|municipalite|departement|department|cercle|arrondissement|sanitaire)\b/g;
+let S = {rows:[], cols:[], res:null, chart:null, statusLayer:null};
+function normName(s){return String(s).normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(STOP," ").replace(/\s+/g," ").trim();}
+function simRatio(a,b){ // ratio de similarité type difflib (2*M/T) via plus longue sous-séquence commune
+  if(a===b) return 1; const n=a.length,m=b.length; if(!n||!m) return 0;
+  let prev=new Array(m+1).fill(0);
+  for(let i=1;i<=n;i++){const cur=new Array(m+1).fill(0);for(let j=1;j<=m;j++)cur[j]=a[i-1]===b[j-1]?prev[j-1]+1:Math.max(prev[j],cur[j-1]);prev=cur;}
+  return 2*prev[m]/(n+m);}
+function matchNames(src, targets, cut){
+  const tn=targets.map(t=>[normName(t),t]); const map={};
+  return src.map(s=>{const n=normName(s); const ex=tn.find(t=>t[0]===n); if(ex){map[s]=ex[1];return {s,m:ex[1],sc:1,how:"exact"};}
+    let best=null,bs=0; for(const t of tn){const r=simRatio(n,t[0]); if(r>bs){bs=r;best=t[1];}}
+    if(bs>=cut){map[s]=best;return {s,m:best,sc:bs,how:"approché"};} return {s,m:null,sc:bs,how:"non trouvé"};});}
+function parseCSV(text){
+  const first=text.split(/\r?\n/)[0]; const sep=[";","\t",","].sort((a,b)=>first.split(b).length-first.split(a).length)[0];
+  const rows=[]; let row=[],f="",q=false;
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){f+='"';i++;} else q=false; } else f+=c; }
+    else if(c==='"') q=true; else if(c===sep){row.push(f);f="";} else if(c==="\n"){row.push(f.replace(/\r$/,""));rows.push(row);row=[];f="";} else f+=c;}
+  if(f.length||row.length){row.push(f.replace(/\r$/,""));rows.push(row);}
+  const head=rows.shift().map(h=>h.trim()); return rows.filter(r=>r.some(x=>x!=="")).map(r=>Object.fromEntries(head.map((h,i)=>[h,r[i]])));}
+function loadXLSX(){return window.XLSX?Promise.resolve():new Promise((ok,ko)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";s.onload=ok;s.onerror=ko;document.head.appendChild(s);});}
+function setRows(rows,label){
+  S.rows=rows; S.cols=rows.length?Object.keys(rows[0]):[];
+  if(!rows.length){$("#sMsg").textContent="Fichier vide ou illisible.";return;}
+  const g=keys=>S.cols.find(c=>keys.some(k=>c.toLowerCase().includes(k)));
+  const fill=(id,opt,def)=>{$("#"+id).innerHTML=(opt?`<option value="">(aucune)</option>`:"")+S.cols.map(c=>`<option>${c}</option>`).join("");$("#"+id).value=def||"";};
+  fill("sName",false,g(["district","zone","nom","name","unit"])||S.cols[0]); fill("sCases",false,g(["cas","case"])||S.cols[1]);
+  fill("sPer",true,g(["period","date","mois","month","semaine","week"])); fill("sPop",true,g(["pop"]));
+  $("#sCols").style.display="block"; $("#sMsg").textContent=`${label} : ${rows.length} lignes, ${S.cols.length} colonnes.`; runSurv();}
+function readFile(file){
+  if(/\.xlsx?$/i.test(file.name)){ loadXLSX().then(()=>file.arrayBuffer()).then(buf=>{const wb=XLSX.read(buf);const ws=wb.Sheets[wb.SheetNames[0]];setRows(XLSX.utils.sheet_to_json(ws,{raw:false,defval:""}),file.name);}).catch(e=>$("#sMsg").textContent="Lecture Excel impossible : "+e); }
+  else file.text().then(t=>setRows(parseCSV(t),file.name));}
+function toPeriod(v){const s=String(v).trim(); let m=s.match(/^(\d{4})[-\/](\d{1,2})/); if(m) return `${m[1]}-${m[2].padStart(2,"0")}`;
+  m=s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/); if(m) return `${m[3]}-${m[2].padStart(2,"0")}`; return s;}
+function runSurv(){
+  if(!S.rows.length) return;
+  if(!dGeo){$("#sMsg").textContent="Pas de limites de districts pour ce pays : choisissez un autre pays.";return;}
+  const nc=$("#sName").value, cc=$("#sCases").value, pc=$("#sPer").value, popc=$("#sPop").value;
+  const cut=+$("#sCut").value, win=+$("#sWin").value, k=+$("#sK").value, mn=+$("#sMin").value;
+  $("#sCutV").textContent=cut.toFixed(2).replace(".",",");
+  const units=dGeo.features.map(f=>f.properties.unit_name);
+  const srcNames=[...new Set(S.rows.map(r=>String(r[nc]??"").trim()).filter(Boolean))];
+  const M=matchNames(srcNames,units,cut), map=Object.fromEntries(M.filter(x=>x.m).map(x=>[x.s,x.m]));
+  const by={}; // unit -> period -> {cases,pop}
+  S.rows.forEach(r=>{const u=map[String(r[nc]??"").trim()]; if(!u) return; const p=pc?toPeriod(r[pc]):"total";
+    const c=parseFloat(String(r[cc]).replace(",",".")); if(isNaN(c)) return; const o=((by[u]=by[u]||{})[p]=by[u][p]||{c:0,pop:null}); o.c+=c;
+    if(popc){const pv=parseFloat(String(r[popc]).replace(",",".")); if(!isNaN(pv)) o.pop=pv;}});
+  const res=Object.entries(by).map(([u,ps])=>{const per=Object.keys(ps).sort(); const series=per.map(p=>ps[p].c);
+    const thr=[],ob=[]; series.forEach((c,i)=>{const h=series.slice(Math.max(0,i-win),i); if(h.length<6||!pc){thr.push(null);ob.push(null);return;}
+      const mu=h.reduce((a,b)=>a+b,0)/h.length, sd=Math.sqrt(h.reduce((a,b)=>a+(b-mu)**2,0)/(h.length-1||1)); const t=Math.max(mn,mu+k*sd); thr.push(t); ob.push(c>t?1:0);});
+    const L=series.length-1, t=thr[L], c=series[L], pop=ps[per[L]].pop;
+    const status=!pc?"—":t==null?"Historique insuffisant":c>t?"Flambée":c>=0.75*t?"Vigilance":"Normal";
+    return {unit:u,period:per[L],cases:c,threshold:t,ratio:t?c/t:null,status,incid:pop?1e5*c/pop:null,per,series,thr,ob};})
+    .sort((a,b)=>(b.ratio??-1)-(a.ratio??-1)||b.cases-a.cases);
+  S.res={res,M,pc};
+  const ok=M.filter(x=>x.m).length;
+  $("#sMsg").innerHTML=`Rapprochement des noms : <b>${ok}/${M.length}</b> trouvés (${M.filter(x=>x.how==="approché").length} par similarité).`+(ok<M.length?" Non trouvés : "+M.filter(x=>!x.m).slice(0,8).map(x=>x.s).join(", ")+(M.length-ok>8?"…":""):"");
+  $("#sOut").style.display="block";
+  const cnt=s=>res.filter(r=>r.status===s).length;
+  $("#sKpis").innerHTML=(pc?[["Flambée",cnt("Flambée")],["Vigilance",cnt("Vigilance")],["Normal",cnt("Normal")],["Historique insuffisant",cnt("Historique insuffisant")]]:[["Districts",res.length]])
+    .map(([l,v])=>`<div class="kpi"><b style="color:${STATUS_COL[l]||"inherit"}">${v}</b><span>${l}</span></div>`).join("");
+  const f1=x=>x==null?"–":x.toFixed(1).replace(".",",");
+  $("#sTab").innerHTML=`<thead><tr><th>District</th><th>Période</th><th>Cas</th><th>Seuil</th><th>Cas/seuil</th><th>Statut</th>${res.some(r=>r.incid!=null)?"<th>/100 000</th>":""}</tr></thead><tbody>`+
+    res.map(r=>`<tr data-u="${r.unit}"><td>${r.unit}</td><td>${r.period}</td><td>${Math.round(r.cases)}</td><td>${f1(r.threshold)}</td><td>${r.ratio==null?"–":r.ratio.toFixed(2).replace(".",",")}</td><td><span class="tag" style="background:${(STATUS_COL[r.status]||"#888")}22;color:${STATUS_COL[r.status]||"inherit"}">${r.status}</span></td>${r.incid!=null?`<td>${f1(r.incid)}</td>`:""}</tr>`).join("")+"</tbody>";
+  $("#sMatch").innerHTML="<thead><tr><th>Nom du fichier</th><th>District</th><th>Score</th><th>Méthode</th></tr></thead><tbody>"+
+    [...M].sort((a,b)=>a.sc-b.sc).map(x=>`<tr><td>${x.s}</td><td>${x.m??"–"}</td><td>${x.sc.toFixed(2)}</td><td>${x.how}</td></tr>`).join("")+"</tbody>";
+  $("#sSel").innerHTML=res.map(r=>`<option>${r.unit}</option>`).join(""); drawSurvChart(res[0]?.unit);
+  document.querySelectorAll("#sTab tbody tr").forEach(tr=>tr.onclick=()=>{$("#sSel").value=tr.dataset.u;drawSurvChart(tr.dataset.u);});
+  // carte des statuts
+  if(S.statusLayer) dmap.removeLayer(S.statusLayer);
+  const st=Object.fromEntries(res.map(r=>[r.unit,r]));
+  const maxInc=Math.max(1,...res.map(r=>r.cases));
+  S.statusLayer=L.geoJSON(dGeo,{style:f=>{const r=st[f.properties.unit_name]; const col=!r?"#cfd3da":pc?(STATUS_COL[r.status]||"#cfd3da"):`rgba(192,57,43,${0.15+0.8*r.cases/maxInc})`;
+      return {color:"#ffffff",weight:.8,fillColor:col,fillOpacity:r?.8:.25};},
+    onEachFeature:(f,l)=>{const r=st[f.properties.unit_name]; l.bindTooltip(`${f.properties.unit_name}${r?` – ${r.status!=="—"?r.status+", ":""}${Math.round(r.cases)} cas (${r.period})`:" – pas de données"}`,{sticky:true});
+      l.on("click",()=>{if(r){$("#sSel").value=r.unit;drawSurvChart(r.unit);}});}}).addTo(dmap);
+  if(dLayer) dLayer.bringToBack();
+}
+function drawSurvChart(u){
+  const r=S.res?.res.find(x=>x.unit===u); if(S.chart) S.chart.destroy(); if(!r) return;
+  S.chart=new Chart($("#sChart"),{data:{labels:r.per,datasets:[
+    {type:"bar",label:"Cas",data:r.series,backgroundColor:r.ob.map(o=>o===1?"#c0392b":css("--blue"))},
+    {type:"line",label:"Seuil épidémique",data:r.thr,borderColor:"#c0392b",borderDash:[5,4],pointRadius:0,borderWidth:1.5,spanGaps:true}]},
+    options:{responsive:true,plugins:{legend:{labels:{color:css("--muted"),boxWidth:12}}},scales:{x:{ticks:{color:css("--muted"),maxTicksLimit:8},grid:{display:false}},y:{ticks:{color:css("--muted")},grid:{color:css("--line")}}}}});}
+function exportAlerts(){ if(!S.res) return;
+  const lines=[["district","periode","cas","seuil","cas_sur_seuil","statut","incidence_100k"].join(",")].concat(
+    S.res.res.map(r=>[`"${r.unit}"`,r.period,r.cases,r.threshold?.toFixed(2)??"",r.ratio?.toFixed(3)??"",r.status,r.incid?.toFixed(2)??""].join(",")));
+  saveFile(`alertes_districts_${$("#dIso").value}.csv`,"﻿"+lines.join("\n"),"text/csv");}
+function initSurv(){
+  $("#sFile").onchange=e=>{const f=e.target.files[0]; if(f) readFile(f);};
+  $("#sDemo").onclick=()=>{ if($("#dIso").value!=="NER"){ $("#dIso").value="NER"; loadDistricts(); }
+    fetch("data/exemples/EXEMPLE_SIMULE_districts_NER.csv").then(r=>r.text()).then(t=>{const go=()=>dGeo?setRows(parseCSV(t),"Exemple SIMULÉ (données fictives)"):setTimeout(go,300); go();});};
+  $("#sTpl").onclick=()=>{ if(!dGeo) return; const names=dGeo.features.map(f=>f.properties.unit_name).sort((a,b)=>a.localeCompare(b,"fr"));
+    saveFile(`modele_${$("#dIso").value}_districts.csv`,"﻿district,period,cases,population\n"+names.map(n=>`"${n}",,,`).join("\n"),"text/csv");};
+  ["sName","sCases","sPer","sPop","sCut","sWin","sK","sMin"].forEach(id=>$("#"+id).oninput=runSurv);
+  $("#sExport").onclick=exportAlerts;
+  $("#sKmlRes").onclick=()=>{ if(!S.res||!dGeo) return; const st=Object.fromEntries(S.res.res.map(r=>[r.unit,r]));
+    const fc={type:"FeatureCollection",features:dGeo.features.map(f=>{const r=st[f.properties.unit_name]||{};return {...f,properties:{...f.properties,statut:r.status??"",cas:r.cases??"",seuil:r.threshold?.toFixed(1)??"",periode:r.period??""}};})};
+    saveFile(`${$("#dIso").value}_districts_statut.kml`,toKML(fc,"unit_name"),"application/vnd.google-earth.kml+xml");};
+}
+
+// ===================================================== navigation par onglets
+function showView(v){
+  const views=[...document.querySelectorAll(".view")].map(x=>x.dataset.view);
+  if(!views.includes(v)) v="tableau";
+  document.querySelectorAll(".view").forEach(x=>x.classList.toggle("on",x.dataset.view===v));
+  document.querySelectorAll(".tabs a").forEach(a=>{const on=a.dataset.v===v;a.classList.toggle("on",on);a.setAttribute("aria-selected",on);});
+  if(v==="tableau" && map){ setTimeout(()=>{map.invalidateSize(); if(gj) map.fitBounds(gj.getBounds(),{padding:[4,4]});},50); }
+  if(v==="districts" && dmap){ setTimeout(()=>{dmap.invalidateSize(); if(dLayer) dmap.fitBounds(dLayer.getBounds());},50); }
+  if(v==="analyses" && xChart){ setTimeout(()=>xChart.resize(),50); }
+  window.scrollTo(0,0);
+}
+window.addEventListener("hashchange",()=>showView(location.hash.slice(1)));
+showView(location.hash.slice(1)||"tableau");
 </script>
 </body>
 </html>
