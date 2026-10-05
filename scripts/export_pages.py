@@ -18,7 +18,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 from measles_predict.features import LABELS, make_features  # noqa: E402
 from measles_predict.models import load_bundle  # noqa: E402
-from measles_predict.pipeline import forecast  # noqa: E402
+from measles_predict.pipeline import forecast, latest_rows  # noqa: E402
 
 OUT = REPO / "docs" / "data"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -57,20 +57,24 @@ def main():
                         "possibly_incomplete": int(r.possibly_incomplete)})
         recs.append(rec)
 
+    ok = d[mb.features].notna().all(axis=1)
+    p_hist = pd.Series(np.nan, index=d.index)
+    p_hist[ok] = (ma.predict_proba(d[ok]) + mb.predict_proba(d[ok])) / 2
     hist = {}
     for iso, g in raw.groupby("iso3"):
         hist[iso] = {"period": g.period.tolist(),
                      "cases": [clean(x) for x in g.cases.astype(float).tolist()],
                      "threshold": [clean(round(x, 1)) for x in g.epidemic_threshold.astype(float).tolist()],
-                     "outbreak": [clean(x) for x in g.outbreak.astype(float).tolist()]}
+                     "outbreak": [clean(x) for x in g.outbreak.astype(float).tolist()],
+                     "p": [clean(round(float(x), 4)) for x in p_hist.loc[g.index].tolist()]}
 
     # latest raw row per country for the in-browser Model A calculator
     calc = {}
-    for iso, g in d[d.cases.notna()].groupby("iso3"):
-        r = g.iloc[-1]
-        calc[iso] = {f: clean(float(r[f])) for f in ma.features}
-        calc[iso].update({"epidemic_threshold": clean(float(r.epidemic_threshold)), "period": r.period,
-                          "cases": clean(float(r.cases))})
+    feats = list(dict.fromkeys(list(ma.features) + list(mb.features)))
+    for _, r in latest_rows(d).iterrows():
+        calc[r.iso3] = {f: clean(float(r[f])) for f in feats}
+        calc[r.iso3].update({"epidemic_threshold": clean(float(r.epidemic_threshold)), "period": r.period,
+                             "cases": clean(float(r.cases))})
 
     payload = {"meta": {**meta, "n_countries": len(countries), "n_alerts": int(fc.alert.sum())},
                "forecast": recs}
@@ -83,6 +87,8 @@ def main():
     shutil.copy(REPO / "data" / "africa_adm0_simplified.geojson", OUT / "africa_adm0.geojson")
     export_cross(fc)
     export_subnational()
+    export_model_b(mb)
+    export_performance(ma, mb)
     print(f"Pages data exported to {OUT}")
 
 
@@ -120,6 +126,35 @@ def export_subnational():
         (geo_dir / "localites" / f"{iso}.json").write_text(
             g[["name", "population", "lat", "lon"]].to_json(orient="values"), encoding="utf-8")
     inv.to_json(OUT / "boundaries_inventory.json", orient="records", force_ascii=False)
+
+
+def export_model_b(mb):
+    """Compact XGBoost model evaluated in the browser (same trees, same predictions)."""
+    booster = mb.model.get_booster()
+    js = json.loads(booster.save_raw("json").decode("utf-8"))
+    learner = js["learner"]
+    base = float(str(learner["learner_model_param"]["base_score"]).strip("[]"))
+    trees = []
+    for t in learner["gradient_booster"]["model"]["trees"]:
+        trees.append([t["left_children"], t["right_children"], t["split_indices"],
+                      [float(f"{v:.9g}") for v in t["split_conditions"]], t["default_left"]])
+    out = {"features": mb.features, "base_margin": float(np.log(base / (1 - base))), "trees": trees}
+    (OUT / "model_b.json").write_text(json.dumps(out, separators=(",", ":")), encoding="utf-8")
+
+
+def export_performance(ma, mb):
+    perf = {}
+    f = REPO / "outputs" / "performance_outbreak_next3.csv"
+    if f.exists():
+        perf["metrics"] = pd.read_csv(f).rename(columns={"Unnamed: 0": "modele"}).round(4).to_dict("records")
+    f = REPO / "outputs" / "rolling_origin_outbreak_next3.csv"
+    if f.exists():
+        perf["rolling"] = pd.read_csv(f).round(4).to_dict("records")
+    perf["odds_ratios"] = [{"variable": k, "label": LABELS.get(k, k), "or_per_sd": round(float(np.exp(v)), 3)}
+                           for k, v in ma.params_.items() if k != "const"]
+    imp = mb.importance().head(12)
+    perf["importance"] = [{"label": r.label, "gain_pct": round(float(r.gain_pct), 2)} for r in imp.itertuples()]
+    (OUT / "performance.json").write_text(json.dumps(perf, ensure_ascii=False), encoding="utf-8")
 
 
 if __name__ == "__main__":

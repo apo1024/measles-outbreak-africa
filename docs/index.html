@@ -81,6 +81,15 @@ code{font-size:12px}
 #appWrap{position:relative;height:calc(100vh - 150px);min-height:640px}
 #appWrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
 #appLoading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chips label{display:inline-flex;gap:4px;align-items:center;margin:0;padding:4px 8px;border:1px solid var(--line);border-radius:999px;font-size:12px;color:var(--ink);cursor:pointer}
+table.heat td,table.heat th{text-align:center;font-size:12px;padding:6px}
+table.heat th:first-child,table.heat td:first-child{text-align:left}
+.simgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:600px){.simgrid{grid-template-columns:1fr}}
+.simbox{border:1px solid var(--line);border-radius:10px;padding:12px}
+.simbox b.big2{display:block;font-size:30px;font-variant-numeric:tabular-nums}
+.delta{font-size:12px;color:var(--muted)}
 footer{max-width:1240px;margin:auto;padding:0 16px 40px;color:var(--muted);font-size:13px}
 a{color:var(--blue)}
 a.btn{text-decoration:none;display:inline-block}
@@ -98,9 +107,10 @@ a.btn{text-decoration:none;display:inline-block}
 <nav class="tabs" aria-label="Sections">
   <div class="tabs-inner" role="tablist">
     <a href="#tableau" role="tab" data-v="tableau">Tableau de bord</a>
+    <a href="#simulateur" role="tab" data-v="simulateur">Simulateur</a>
     <a href="#analyses" role="tab" data-v="analyses">Analyses croisées</a>
     <a href="#districts" role="tab" data-v="districts">Districts &amp; localités</a>
-    <a href="#application" role="tab" data-v="application">Application avancée</a>
+    <a href="#performance" role="tab" data-v="performance">Performance</a>
     <a href="#methode" role="tab" data-v="methode">Méthode</a>
   </div>
 </nav>
@@ -127,28 +137,36 @@ a.btn{text-decoration:none;display:inline-block}
     </div>
   </section>
 
-  <section class="grid" style="margin-top:16px">
-    <div class="card">
+  <section class="card" style="margin-top:16px">
       <h2>Classement – probabilité de flambée dans les 3 mois suivants</h2>
       <div class="tablewrap"><table id="tbl"><thead></thead><tbody></tbody></table></div>
       <p class="note">« Données > 3 mois » : le pays n'a pas notifié récemment ; « incomplet » : le dernier mois est
-        inférieur à 25 % du niveau habituel (retard de notification probable). Interpréter ces prévisions avec prudence.</p>
-    </div>
+        inférieur à 25 % du niveau habituel (retard de notification probable). Interpréter ces prévisions avec prudence.
+        Cliquez sur un pays pour ouvrir sa fiche ; pour tester des scénarios, utilisez l'onglet <a href="#simulateur">Simulateur</a>.</p>
+  </section>
+
+</div>
+<div class="view" data-view="simulateur">
+  <section class="grid">
     <div class="card">
-      <h2>Calculateur – Modèle A (régression logistique)</h2>
-      <p class="note">Simulez la situation du dernier mois notifié d'un pays. Le modèle B (XGBoost) est disponible dans
-        l'application Python (Streamlit / CLI).</p>
+      <h2>Simulateur « et si ? » – modèles A et B</h2>
+      <p class="note">Partez de la situation réelle du dernier mois consolidé d'un pays, puis modifiez les cas, la couverture vaccinale ou la vulnérabilité :
+        les deux modèles recalculent la probabilité de flambée dans les 3 mois suivants. Les calculs sont faits dans votre navigateur.</p>
       <label for="cIso">Pays</label><select id="cIso"></select>
       <label for="cCases">Cas notifiés ce mois : <b id="vCases"></b></label><input type="number" id="cCases" min="0" step="10">
       <label for="cMcv1">MCV1 (%) : <b id="vMcv1"></b></label><input type="range" id="cMcv1" min="0" max="100">
       <label for="cMcv2">MCV2 (%) : <b id="vMcv2"></b></label><input type="range" id="cMcv2" min="0" max="100">
       <label for="cIvr">IVR : <b id="vIvr"></b></label><input type="range" id="cIvr" min="0" max="100" step="0.5">
-      <div style="margin-top:14px"><span class="note">Probabilité de flambée (t+1 à t+3)</span>
-        <div class="big" id="cOut">–</div><div class="bar"><div id="cBar" style="width:0"></div></div>
-        <p class="note" id="cInfo"></p></div>
+      <p style="margin-top:12px"><button class="btn" id="cReset" type="button">Revenir à la situation observée</button></p>
+      <p class="note" id="cInfo"></p>
+    </div>
+    <div class="card">
+      <h2>Probabilité de flambée (mois t+1 à t+3)</h2>
+      <div id="simOut"></div>
+      <p class="note">Modèle A : régression logistique, interprétable. Modèle B : XGBoost (500 arbres). Ensemble : moyenne des deux ; l'alerte se déclenche
+        au-dessus du seuil de l'ensemble. Une alerte appelle une vérification des données et une vigilance renforcée, pas une riposte automatique.</p>
     </div>
   </section>
-
 </div>
 <div class="view" data-view="analyses">
   <section class="card" id="cross">
@@ -169,21 +187,50 @@ a.btn{text-decoration:none;display:inline-block}
     </div>
   </section>
 
+
+  <section class="card" style="margin-top:16px" id="matrixCard">
+    <h2>Matrice de corrélation</h2>
+    <p class="note">Corrélation entre chaque paire de variables, sur la période choisie plus haut. Rouge = les deux montent ensemble ; bleu = l'une monte quand l'autre baisse ; couleur intense = lien fort.</p>
+    <div class="ctrl"><label>Méthode <select id="mMethod"><option value="spearman">Spearman (rangs, recommandé)</option><option value="pearson">Pearson (linéaire)</option></select></label></div>
+    <div id="mVars" class="chips"></div>
+    <div class="tablewrap" style="margin-top:10px"><table id="mTab" class="heat"></table></div>
+  </section>
+
+  <section class="card" style="margin-top:16px" id="bivCard">
+    <h2>Carte bivariée</h2>
+    <p class="note">Deux variables sur une même carte, chacune coupée en trois tiers. Couleur la plus foncée = pays dans le tiers supérieur pour les deux.</p>
+    <div class="ctrl"><label>Variable 1 (rouge) <select id="bX"></select></label><label>Variable 2 (bleu) <select id="bY"></select></label></div>
+    <div class="grid" style="margin-top:8px">
+      <div id="bmap" style="height:460px;border-radius:8px"></div>
+      <div><div id="bLeg"></div><p class="note" id="bHot"></p></div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:16px" id="grpCard">
+    <h2>Comparaison de groupes (boîtes à moustaches)</h2>
+    <p class="note">La ligne au milieu de chaque boîte = le pays du milieu (médiane) ; la boîte = la moitié des pays ; les points isolés = les pays exceptionnels.</p>
+    <div class="ctrl"><label>Variable <select id="gVar"></select></label><label>Groupes <select id="gGrp"></select></label></div>
+    <div id="gBox" style="margin-top:8px"></div>
+    <p class="note" id="gTest"></p>
+    <div class="tablewrap"><table id="gSum"></table></div>
+  </section>
 </div>
 <div class="view" data-view="districts">
   <section class="card" id="districts-card">
     <h2>Districts et localités</h2>
-    <p class="note">Limites infranationales recherchées pour les 54 pays (geoBoundaries : limites humanitaires OCHA COD-AB, sinon gbOpen) et villes et villages de plus de 1 000 habitants (GeoNames). Les fichiers KML sont générés dans votre navigateur.</p>
+    <p class="note">Limites infranationales des 54 pays : régions (ADM1), districts (ADM2), communes (ADM3), localités administratives (ADM4) selon les pays (geoBoundaries, limites humanitaires OCHA COD-AB en priorité), villes et villages de plus de 1 000 habitants (GeoNames). Vous pouvez aussi importer vos propres limites (zones ou aires de santé, en KML ou GeoJSON). Les fichiers KML sont générés dans votre navigateur.</p>
     <div class="ctrl">
       <label>Pays <select id="dIso"></select></label>
+      <label>Niveau <select id="dLevel"></select></label>
+      <label>Ou vos propres limites <input type="file" id="dOwn" accept=".geojson,.json,.kml"></label>
       <label>Localités : population minimale <select id="dPop"><option>1000</option><option selected>5000</option><option>20000</option><option>100000</option></select></label>
     </div>
     <div class="grid" style="margin-top:8px">
       <div id="dmap" style="height:480px;border-radius:8px"></div>
       <div><div class="tablewrap" style="max-height:300px"><table id="dInv"></table></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-          <button class="btn" id="dKml">Districts (KML)</button>
-          <button class="btn" id="dGeo">Districts (GeoJSON)</button>
+          <button class="btn" id="dKml">Limites affichées (KML)</button>
+          <button class="btn" id="dGeo">Limites affichées (GeoJSON)</button>
           <button class="btn" id="dLoc">Localités (KML)</button>
         </div>
         <p class="note" id="dInfo"></p>
@@ -192,7 +239,7 @@ a.btn{text-decoration:none;display:inline-block}
   </section>
   <section class="card" id="survCard" style="margin-top:16px">
     <h2>Surveillance par district avec vos données</h2>
-    <p class="note">Importez un fichier CSV ou Excel de cas par district (colonnes : district, cas et, facultativement, période AAAA-MM et population). Le fichier reste dans votre navigateur : rien n'est envoyé sur Internet. Les noms sont rapprochés automatiquement des districts du pays sélectionné ci-dessus.</p>
+    <p class="note">Importez un fichier CSV ou Excel de cas par district (colonnes : district, cas et, facultativement, période AAAA-MM et population). Le fichier reste dans votre navigateur : rien n'est envoyé sur Internet. Les noms sont rapprochés automatiquement des unités affichées sur la carte ci-dessus (niveau choisi ou limites importées).</p>
     <div class="ctrl">
       <label>Fichier <input type="file" id="sFile" accept=".csv,.txt,.xlsx,.xls"></label>
       <label class="chk"><button class="btn" id="sDemo" type="button">Charger l'exemple simulé (Niger)</button></label>
@@ -228,20 +275,22 @@ a.btn{text-decoration:none;display:inline-block}
   </section>
 
 </div>
-<div class="view" data-view="application">
+<div class="view" data-view="performance">
   <section class="card">
-    <h2>Application avancée</h2>
-    <p>Tout ce qui est utile au quotidien est sur cette page : prévisions, fiches pays, calculateur, analyses croisées, districts, localités et
-      <b>surveillance par district avec vos données</b>. L'application avancée ajoute :</p>
-    <ul>
-      <li>le simulateur avec les deux modèles (A et B) ;</li>
-      <li>les analyses croisées détaillées : matrice de corrélation, carte bivariée, comparaison de groupes ;</li>
-      <li>les niveaux ADM1 à ADM4 et l'import de vos propres limites (zones ou aires de santé) ;</li>
-      <li>les performances détaillées des modèles.</li>
-    </ul>
-    <p><a class="btn btn-primary" href="https://apo1024-measles-outbreak-africa-appstreamlit-app-wnb8pu.streamlit.app/" target="_blank" rel="noopener">Ouvrir l'application avancée ↗</a></p>
-    <p class="note">Elle s'ouvre dans un nouvel onglet : l'hébergeur (Streamlit Community Cloud) n'autorise pas son affichage complet à l'intérieur d'une autre page.
-      Après quelques jours sans visite, son premier chargement peut prendre environ 30 secondes.</p>
+    <h2>Performance des modèles</h2>
+    <p class="note">Validation temporelle : apprentissage sur 2013-2022, test sur 2023-2026 (années jamais vues par les modèles). Cible : flambée dans les 3 mois.</p>
+    <div class="tablewrap"><table id="pMetrics"></table></div>
+  </section>
+  <section class="grid" style="margin-top:16px">
+    <div class="card"><h2>Stabilité dans le temps (origine glissante)</h2><div style="position:relative;height:280px"><canvas id="pRoll"></canvas></div>
+      <p class="note">Pour chaque année, le modèle apprend sur les années précédentes puis prédit l'année. 0,5 = hasard, 1 = parfait.</p></div>
+    <div class="card"><h2>Modèle B – variables les plus utiles</h2><div style="position:relative;height:280px"><canvas id="pImp"></canvas></div>
+      <p class="note">Part du gain total apporté par chaque variable dans les arbres de décision.</p></div>
+  </section>
+  <section class="card" style="margin-top:16px">
+    <h2>Modèle A – odds ratios par écart-type</h2>
+    <div style="position:relative;height:320px"><canvas id="pOr"></canvas></div>
+    <p class="note">OR &gt; 1 : le facteur augmente le risque de flambée ; OR &lt; 1 : il le diminue. « Par écart-type » permet de comparer des facteurs d'unités différentes. Coefficients du modèle final, réentraîné sur toutes les données (le rapport présente ceux du modèle d'apprentissage 2013-2022).</p>
   </section>
 </div>
 <div class="view" data-view="methode">
@@ -253,13 +302,14 @@ a.btn{text-decoration:none;display:inline-block}
       <b>IVR</b> : indice composite 0-100 (déficit vaccinal 35 %, accès aux soins 20 %, démographie, pauvreté,
       malnutrition 15 % chacun). <b>Modèle A</b> : régression logistique (+ binomiale négative pour les comptes).
       <b>Modèle B</b> : XGBoost. Validation temporelle 2023-2026 : AUC 0,82 (A), 0,84 (B), 0,84 (ensemble).</p>
-    <p class="note">Outil de recherche : il ne remplace ni l'investigation de terrain ni le jugement des autorités sanitaires.</p>
+    <p class="note">Outil de recherche : il ne remplace ni l'investigation de terrain ni le jugement des autorités sanitaires.
+      Pour les chercheurs : le code Python (réentraînement, ligne de commande) est sur <a href="https://github.com/apo1024/measles-outbreak-africa">GitHub</a>.</p>
   </section>
 </div>
 </main>
 <footer>
   Miracle Destine Apollon, épidémiologiste de terrain – Chicago, IL (USA) – <a href="mailto:info@idreamlore.com">info@idreamlore.com</a> ·
-  <a href="#application">Application avancée</a> · <a href="https://github.com/apo1024/measles-outbreak-africa">Code source et documentation</a> · Licence MIT (code) ; données : OMS, Banque mondiale, geoBoundaries.
+  <a href="https://github.com/apo1024/measles-outbreak-africa">Code source et documentation</a> · Licence MIT (code) ; données : OMS, Banque mondiale, geoBoundaries.
 </footer>
 <script>
 const $ = s => document.querySelector(s);
@@ -277,7 +327,7 @@ Promise.all(["data/forecast.json","data/history.json","data/model_a.json","data/
   kpis(); drawMap(); table(); calculator();
   const first = [...F.forecast].filter(r=>r.p_ensemble!=null).sort((x,y)=>y.p_ensemble-x.p_ensemble)[0];
   if (first) detail(first.iso3);
-  initCross(); initDistricts(); initSurv();
+  initLevels(); initCross(); initDistricts(); initSurv(); initPerf();
 }).catch(e => { $("#sub").textContent = "Erreur de chargement des données : " + e; });
 
 function kpis(){
@@ -310,7 +360,7 @@ function drawMap(){
     onEachFeature:(f,l)=>{ const r=byIso[f.properties.iso3];
       l.bindTooltip(r?`<b>${r.country}</b><br>P(flambée 3 mois) : ${pct(r.p_ensemble)}<br>IVR : ${r.ivr??"–"} · MCV1 : ${r.mcv1??"–"} %`:f.properties.iso3,{sticky:true});
       l.on("click",()=>detail(f.properties.iso3)); }}).addTo(map);
-  map.fitBounds(gj.getBounds(),{padding:[4,4]});
+  safeFit(map,gj.getBounds(),{padding:[4,4]});
   legend();
   document.querySelectorAll("#layerSeg button").forEach(b=>b.onclick=()=>{
     document.querySelectorAll("#layerSeg button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
@@ -331,9 +381,11 @@ function detail(iso){
   const n=h.period.length, s=Math.max(0,n-72);
   chart = new Chart($("#chart"),{data:{labels:h.period.slice(s),datasets:[
     {type:"bar",label:"Cas mensuels",data:h.cases.slice(s),backgroundColor:css("--blue")},
-    {type:"line",label:"Seuil épidémique",data:h.threshold.slice(s),borderColor:css("--accent"),borderDash:[5,4],pointRadius:0,borderWidth:1.5}]},
+    {type:"line",label:"Seuil épidémique",data:h.threshold.slice(s),borderColor:css("--accent"),borderDash:[5,4],pointRadius:0,borderWidth:1.5},
+    ...(h.p?[{type:"line",label:"Probabilité prédite (3 mois)",data:h.p.slice(s),yAxisID:"y1",borderColor:"#e8a33d",pointRadius:0,borderWidth:1.5,spanGaps:true}]:[])]},
     options:{responsive:true,plugins:{legend:{labels:{color:css("--muted"),boxWidth:12}}},
-      scales:{x:{ticks:{color:css("--muted"),maxTicksLimit:8},grid:{display:false}},y:{ticks:{color:css("--muted")},grid:{color:css("--line")}}}}});
+      scales:{x:{ticks:{color:css("--muted"),maxTicksLimit:8},grid:{display:false}},y:{ticks:{color:css("--muted")},grid:{color:css("--line")},title:{display:true,text:"cas",color:css("--muted")}},
+        y1:{position:"right",min:0,max:1,ticks:{color:css("--muted"),callback:v=>Math.round(100*v)+" %"},grid:{drawOnChartArea:false}}}}});
   if($("#cIso").value!==iso && C[iso]){ $("#cIso").value=iso; loadCalc(); }
 }
 
@@ -349,28 +401,6 @@ function table(){
   document.querySelectorAll("#tbl tbody tr").forEach(tr=>tr.onclick=()=>detail(tr.dataset.i));
 }
 
-function calculator(){
-  const isos=Object.keys(C).sort((a,b)=>(byIso[a]?.country||a).localeCompare(byIso[b]?.country||b,"fr"));
-  $("#cIso").innerHTML=isos.map(i=>`<option value="${i}">${byIso[i]?.country||i}</option>`).join("");
-  $("#cIso").value = isos.includes("NGA")?"NGA":isos[0];
-  $("#cIso").onchange=loadCalc; ["cCases","cMcv1","cMcv2","cIvr"].forEach(id=>$("#"+id).oninput=calc);
-  loadCalc();
-}
-function loadCalc(){
-  const c=C[$("#cIso").value];
-  $("#cCases").value=Math.round(c.cases); $("#cMcv1").value=c.mcv1; $("#cMcv2").value=c.mcv2; $("#cIvr").value=c.ivr_score; calc();
-}
-function calc(){
-  const c={...C[$("#cIso").value]}; const cases=+$("#cCases").value||0;
-  c.log_cases=Math.log1p(cases); c.ratio_to_threshold=Math.min(20,Math.max(0,cases/c.epidemic_threshold));
-  c.outbreak_now = cases>c.epidemic_threshold?1:0; c.mcv1=+$("#cMcv1").value; c.mcv2=+$("#cMcv2").value; c.ivr_score=+$("#cIvr").value;
-  $("#vCases").textContent=num(cases); $("#vMcv1").textContent=c.mcv1; $("#vMcv2").textContent=c.mcv2; $("#vIvr").textContent=c.ivr_score;
-  let eta=A.coef.const; A.features.forEach(f=>{ eta += A.coef[f]*((c[f]-A.mean[f])/A.sd[f]); });
-  const p=1/(1+Math.exp(-eta));
-  $("#cOut").textContent=pct(p); $("#cBar").style.width=(100*p).toFixed(1)+"%";
-  const thr=F.meta.thresholds.A;
-  $("#cInfo").innerHTML=`Mois de référence : ${c.period} · seuil épidémique : ${num(c.epidemic_threshold)} cas · ${p>=thr?'<span class="tag alert">au-dessus du seuil d\'alerte du modèle A ('+pct(thr)+')</span>':"sous le seuil d'alerte du modèle A ("+pct(thr)+")"}`;
-}
 // ===================================================== analyses croisées
 const SRC = {"Afrique de l'Ouest":"#2a78b5","Afrique centrale":"#d9534f","Afrique de l'Est":"#e8a33d","Afrique australe":"#3a9e6f","Afrique du Nord":"#8064a2"};
 let P, xChart;
@@ -405,7 +435,7 @@ function initCross(){
     const opt=a=>a.map(([k,m])=>`<option value="${k}">${m.label}</option>`).join("");
     $("#xX").innerHTML=opt(nums); $("#xYv").innerHTML=opt(nums); $("#xRow").innerHTML=opt(cats); $("#xCol").innerHTML=opt(cats);
     $("#xX").value="ivr_score"; $("#xYv").value="incidence_pm"; $("#xLogY").checked=true; $("#xRow").value="ivr_class"; $("#xCol").value="incidence_class";
-    ["xY0","xY1","xX","xYv","xLogY","xRow","xCol"].forEach(id=>$("#"+id).onchange=drawCross); drawCross();});
+    ["xY0","xY1","xX","xYv","xLogY","xRow","xCol"].forEach(id=>$("#"+id).onchange=drawCross); drawCross(); initExtra();});
 }
 function drawCross(){
   let y0=+$("#xY0").value,y1=+$("#xY1").value; if(y1<y0)[y0,y1]=[y1,y0];
@@ -463,22 +493,6 @@ function initDistricts(){
     $("#dLoc").onclick=()=>{const fc={type:"FeatureCollection",features:dLoc.map(([n,p,la,lo])=>({type:"Feature",properties:{nom:n,population:p},geometry:{type:"Point",coordinates:[lo,la]}}))};
       saveFile(`${$("#dIso").value}_localites.kml`,toKML(fc,"nom"),"application/vnd.google-earth.kml+xml");};
     loadDistricts();});
-}
-function loadDistricts(){
-  const iso=$("#dIso").value, rows=INV.filter(r=>r.iso3===iso);
-  const LV={ADM2:"Districts (ADM2)",ADM3:"Sous-districts / communes (ADM3)",ADM4:"Localités administratives (ADM4)",LOCALITES:"Villes et villages (points)"};
-  $("#dInv").innerHTML=`<thead><tr><th>Niveau</th><th>Unités</th><th>Source</th><th>Fichier</th></tr></thead><tbody>`+
-    rows.map(r=>`<tr><td>${LV[r.level]||r.level}</td><td>${(r.n_units||0).toLocaleString("fr-FR")}</td><td>${(r.source||"").slice(0,26)}</td><td>${r.url?`<a href="${r.url}" target="_blank" rel="noopener">GeoJSON</a>`:"boutons"}</td></tr>`).join("")+"</tbody>";
-  if(dLayer){dmap.removeLayer(dLayer);dLayer=null;} dGeo=null;
-  if(typeof S!=="undefined" && S.statusLayer){dmap.removeLayer(S.statusLayer);S.statusLayer=null;}
-  fetch(`geo/ADM2/${iso}.geojson`).then(r=>r.ok?r.json():null).catch(()=>null).then(g=>{dGeo=g;
-    if(g){dLayer=L.geoJSON(g,{style:{color:"#7a2e1f",weight:1,fillColor:"#e9b7a8",fillOpacity:.25},
-      onEachFeature:(f,l)=>l.bindTooltip(f.properties.unit_name,{sticky:true})}).addTo(dmap); dmap.fitBounds(dLayer.getBounds());
-      $("#dInfo").textContent=`${g.features.length} districts affichés (géométrie simplifiée pour le web ; fichiers complets via le lien GeoJSON).`;}
-    else{ $("#dInfo").textContent="Pas de limites ADM2 pour ce pays."; const f=gj.getLayers().find(l=>l.feature.properties.iso3===iso); if(f) dmap.fitBounds(f.getBounds()); }
-    $("#dKml").disabled=$("#dGeo").disabled=!g;
-    if(typeof S!=="undefined" && S.rows.length) runSurv();});
-  fetch(`geo/localites/${iso}.json`).then(r=>r.ok?r.json():[]).catch(()=>[]).then(l=>{dLoc=l;drawLocalities();});
 }
 function drawLocalities(){
   if(lLayer)dmap.removeLayer(lLayer); const mp=+$("#dPop").value;
@@ -591,6 +605,218 @@ function initSurv(){
     saveFile(`${$("#dIso").value}_districts_statut.kml`,toKML(fc,"unit_name"),"application/vnd.google-earth.kml+xml");};
 }
 
+// ===================================================== simulateur A + B
+let MB=null, PERF=null;
+function predictA(c){ let eta=A.coef.const; A.features.forEach(f=>{ eta += A.coef[f]*((c[f]-A.mean[f])/A.sd[f]); }); return 1/(1+Math.exp(-eta)); }
+function predictB(c){ if(!MB) return null; let m=MB.base_margin; const v=MB.features.map(f=>c[f]);
+  for(const [Lc,Rc,S,T,D] of MB.trees){ let n=0; while(Lc[n]!==-1){ const raw=v[S[n]]; const val=raw==null?null:Math.fround(raw);
+      n=(val==null||Number.isNaN(val))?(D[n]?Lc[n]:Rc[n]):(val<Math.fround(T[n])?Lc[n]:Rc[n]); } m+=T[n]; }
+  return 1/(1+Math.exp(-m)); }
+function safeFit(m,b,o){ if(m&&b&&b.isValid()&&m.getContainer().offsetWidth>0){ m.invalidateSize(); m.fitBounds(b,o||{}); } }
+function riskOf(p){ return p<0.15?"Faible":p<0.30?"Modéré":p<0.50?"Élevé":"Très élevé"; }
+let SIM0={};
+function scenario(){
+  // seules les valeurs réellement modifiées remplacent la situation observée (pas d'effet d'arrondi des curseurs)
+  const base={...C[$("#cIso").value]}, c={...base};
+  const v={cases:+$("#cCases").value||0, mcv1:+$("#cMcv1").value, mcv2:+$("#cMcv2").value, ivr:+$("#cIvr").value};
+  if(v.cases!==SIM0.cases){ c.cases=v.cases; c.log_cases=Math.log1p(v.cases); c.ratio_to_threshold=Math.min(20,Math.max(0,v.cases/c.epidemic_threshold)); c.outbreak_now=v.cases>c.epidemic_threshold?1:0; }
+  if(v.mcv1!==SIM0.mcv1) c.mcv1=v.mcv1;
+  if(v.mcv2!==SIM0.mcv2) c.mcv2=v.mcv2;
+  if(v.ivr!==SIM0.ivr) c.ivr_score=v.ivr;
+  return {base,c};
+}
+function calc(){
+  const {base,c}=scenario();
+  $("#vCases").textContent=num(c.cases); $("#vMcv1").textContent=Math.round(c.mcv1); $("#vMcv2").textContent=Math.round(c.mcv2); $("#vIvr").textContent=(+c.ivr_score).toFixed(1).replace(".",",");
+  const a0=predictA(base), b0=predictB(base), a=predictA(c), b=predictB(c);
+  const e0=b0==null?a0:(a0+b0)/2, e=b==null?a:(a+b)/2, thr=F.meta.thresholds.Ensemble;
+  const box=(lab,p,p0,main)=>`<div class="simbox"${main?' style="border-color:var(--accent)"':""}><span class="note">${lab}</span><b class="big2"${main?' style="color:var(--accent)"':""}>${pct(p)}</b>
+    <div class="bar"><div style="width:${(100*(p||0)).toFixed(1)}%"></div></div><span class="delta">${p0==null?"":(p-p0>=0?"+":"")+(100*(p-p0)).toFixed(1).replace(".",",")+" pts vs situation observée"}</span></div>`;
+  $("#simOut").innerHTML=`<div class="simgrid">${box("Modèle A (logistique)",a,a0)}${box("Modèle B (XGBoost)",b,b0)}${box("Ensemble A+B",e,e0,true)}</div>
+    <p style="margin-top:12px">Niveau de risque : <b>${riskOf(e)}</b> · ${e>=thr?'<span class="tag alert">ALERTE</span> au-dessus du seuil d\'alerte ('+pct(thr)+')':"sous le seuil d'alerte ("+pct(thr)+")"}</p>`;
+  $("#cInfo").innerHTML=`Mois de référence : <b>${c.period}</b> · cas observés : ${num(base.cases)} · seuil épidémique du pays : ${num(c.epidemic_threshold)} cas
+    ${c.outbreak_now?" · <b>ce scénario dépasse le seuil (flambée en cours)</b>":""}`;
+}
+function calculator(){
+  const isos=Object.keys(C).sort((a,b)=>(byIso[a]?.country||a).localeCompare(byIso[b]?.country||b,"fr"));
+  $("#cIso").innerHTML=isos.map(i=>`<option value="${i}">${byIso[i]?.country||i}</option>`).join("");
+  $("#cIso").value = isos.includes("NGA")?"NGA":isos[0];
+  $("#cIso").onchange=loadCalc; ["cCases","cMcv1","cMcv2","cIvr"].forEach(id=>$("#"+id).oninput=calc);
+  $("#cReset").onclick=loadCalc;
+  fetch("data/model_b.json").then(r=>r.json()).then(m=>{MB=m; calc();});
+  loadCalc();
+}
+function loadCalc(){
+  const c=C[$("#cIso").value];
+  $("#cCases").value=Math.round(c.cases); $("#cMcv1").value=c.mcv1; $("#cMcv2").value=c.mcv2; $("#cIvr").value=c.ivr_score;
+  SIM0={cases:+$("#cCases").value||0, mcv1:+$("#cMcv1").value, mcv2:+$("#cMcv2").value, ivr:+$("#cIvr").value}; calc();
+}
+
+// ===================================================== performance
+let pCharts=[];
+function initPerf(){
+  fetch("data/performance.json").then(r=>r.json()).then(p=>{PERF=p;
+    const f3=x=>x==null?"–":(+x).toFixed(3).replace(".",","), f1=x=>x==null?"–":(100*x).toFixed(1).replace(".",",")+" %";
+    const name={A:"A – régression logistique",B:"B – XGBoost",RF:"Forêt aléatoire",Ensemble:"Ensemble A+B","Naïf":"Naïf (persistance)"};
+    $("#pMetrics").innerHTML="<thead><tr><th>Modèle</th><th>AUC-ROC</th><th>AUC-PR</th><th>Brier</th><th>Sensibilité</th><th>Spécificité</th><th>VPP</th><th>VPN</th></tr></thead><tbody>"+
+      (p.metrics||[]).map(m=>`<tr${m.modele==="Ensemble"?' style="font-weight:600"':""}><td>${name[m.modele]||m.modele}</td><td>${f3(m.auc_roc)}</td><td>${f3(m.auc_pr)}</td><td>${f3(m.brier)}</td><td>${f1(m.sensitivity)}</td><td>${f1(m.specificity)}</td><td>${f1(m.ppv)}</td><td>${f1(m.npv)}</td></tr>`).join("")+"</tbody>";
+    drawPerfCharts();});
+}
+function drawPerfCharts(){
+  if(!PERF) return; pCharts.forEach(c=>c.destroy()); pCharts=[];
+  const ax={ticks:{color:css("--muted")},grid:{color:css("--line")}}, lg={labels:{color:css("--muted"),boxWidth:12}};
+  const R=PERF.rolling||[];
+  pCharts.push(new Chart($("#pRoll"),{type:"line",data:{labels:R.map(r=>r.test_year),datasets:[
+    {label:"Modèle A",data:R.map(r=>r.auc_A),borderColor:"#7a8699",backgroundColor:"#7a8699",tension:.2},
+    {label:"Modèle B",data:R.map(r=>r.auc_B),borderColor:"#b8a27a",backgroundColor:"#b8a27a",tension:.2},
+    {label:"Ensemble",data:R.map(r=>r.auc_Ensemble),borderColor:css("--accent"),backgroundColor:css("--accent"),borderWidth:3,tension:.2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:lg},scales:{x:ax,y:{...ax,min:0.5,max:1}}}}));
+  const I=PERF.importance||[];
+  pCharts.push(new Chart($("#pImp"),{type:"bar",data:{labels:I.map(r=>r.label),datasets:[{label:"% du gain",data:I.map(r=>r.gain_pct),backgroundColor:css("--blue")}]},
+    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:ax,y:{ticks:{color:css("--muted"),font:{size:10}},grid:{display:false}}}}}));
+  const O=[...(PERF.odds_ratios||[])].sort((a,b)=>b.or_per_sd-a.or_per_sd);
+  pCharts.push(new Chart($("#pOr"),{type:"bar",data:{labels:O.map(r=>r.label),datasets:[{label:"OR par écart-type",data:O.map(r=>r.or_per_sd),
+      backgroundColor:O.map(r=>r.or_per_sd>=1?"rgba(192,57,43,.75)":"rgba(58,158,111,.75)"),base:1}]},
+    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`OR = ${(+c.raw).toFixed(2).replace(".",",")}`}}},
+      scales:{x:{...ax,type:"logarithmic",min:0.3,max:3,title:{display:true,text:"Odds ratio (échelle log ; 1 = pas d'effet)",color:css("--muted")}},y:{ticks:{color:css("--muted"),font:{size:10}},grid:{display:false}}}}}));
+}
+
+// ===================================================== analyses croisées : matrice, carte bivariée, groupes
+let bmap=null, bLayer=null, extraReady=false;
+const BIV={"1-1":"#e8e8e8","2-1":"#e4acac","3-1":"#c85a5a","1-2":"#b0d5df","2-2":"#ad9ea5","3-2":"#985356","1-3":"#64acbe","2-3":"#627f8c","3-3":"#574249"};
+const LOGV=new Set(["incidence_pm","cases","population_total","gdp_per_capita_usd","pop_density","health_exp_per_capita"]);
+function curView(){ let y0=+$("#xY0").value,y1=+$("#xY1").value; if(y1<y0)[y0,y1]=[y1,y0]; return periodView(y0,y1); }
+function numVars(){ return Object.entries(P.variables).filter(([k,m])=>m.kind==="num"); }
+function initExtra(){
+  const nums=numVars(), cats=Object.entries(P.variables).filter(([k,m])=>m.kind==="cat");
+  const opt=a=>a.map(([k,m])=>`<option value="${k}">${m.label}</option>`).join("");
+  const def=["incidence_pm","outbreak_months","mcv1","mcv2","ivr_score","under5_mortality","stunting_pct","gdp_per_capita_usd","urban_pct","children_pct"];
+  $("#mVars").innerHTML=nums.map(([k,m])=>`<label><input type="checkbox" value="${k}" ${def.includes(k)?"checked":""}> ${m.label}</label>`).join("");
+  $("#bX").innerHTML=opt(nums); $("#bY").innerHTML=opt(nums); $("#bX").value="ivr_score"; $("#bY").value="incidence_pm";
+  $("#gVar").innerHTML=opt(nums); $("#gGrp").innerHTML=opt(cats); $("#gVar").value="incidence_pm"; $("#gGrp").value="mcv1_class";
+  document.querySelectorAll("#mVars input").forEach(i=>i.onchange=drawMatrix);
+  ["mMethod"].forEach(id=>$("#"+id).onchange=drawMatrix); ["bX","bY"].forEach(id=>$("#"+id).onchange=drawBiv); ["gVar","gGrp"].forEach(id=>$("#"+id).onchange=drawGroups);
+  ["xY0","xY1"].forEach(id=>{const old=$("#"+id).onchange; $("#"+id).onchange=()=>{old&&old(); drawExtra();};});
+  bmap=L.map("bmap",{zoomSnap:.25,attributionControl:false,scrollWheelZoom:false});
+  extraReady=true; drawExtra();
+}
+function drawExtra(){ if(!extraReady) return; drawMatrix(); drawBiv(); drawGroups(); }
+function corrOf(V,a,b,method){ const pts=V.filter(r=>r[a]!=null&&r[b]!=null); if(pts.length<4) return null;
+  let x=pts.map(r=>r[a]), y=pts.map(r=>r[b]); if(method==="spearman"){x=ranks(x);y=ranks(y);} return pearson(x,y).r; }
+function drawMatrix(){
+  const V=curView(), vars=[...document.querySelectorAll("#mVars input:checked")].map(i=>i.value), m=$("#mMethod").value;
+  if(vars.length<2){ $("#mTab").innerHTML="<tbody><tr><td>Choisissez au moins deux variables.</td></tr></tbody>"; return; }
+  const cell=r=>{ if(r==null||isNaN(r)) return `<td>–</td>`; const a=Math.min(1,Math.abs(r)); const bg=r>=0?`rgba(192,57,43,${a*.85})`:`rgba(42,111,176,${a*.85})`;
+    return `<td style="background:${bg};color:${a>.55?"#fff":"inherit"}">${r.toFixed(2).replace(".",",")}</td>`; };
+  const lab=k=>P.variables[k].label;
+  $("#mTab").innerHTML=`<thead><tr><th></th>${vars.map(v=>`<th title="${lab(v)}">${lab(v).length>18?lab(v).slice(0,17)+"…":lab(v)}</th>`).join("")}</tr></thead><tbody>`+
+    vars.map(a=>`<tr><td>${lab(a)}</td>${vars.map(b=>a===b?`<td style="background:var(--line)">1</td>`:cell(corrOf(V,a,b,m))).join("")}</tr>`).join("")+"</tbody>";
+}
+function tertile(vals){ const idx=vals.map((v,i)=>[v,i]).filter(x=>x[0]!=null).sort((a,b)=>a[0]-b[0]); const out=Array(vals.length).fill(null);
+  idx.forEach(([v,i],k)=>{ out[i]=1+Math.min(2,Math.floor(3*k/idx.length)); }); return out; }
+function drawBiv(){
+  const V=curView(), X=$("#bX").value, Y=$("#bY").value, lab=k=>P.variables[k].label;
+  const tx=tertile(V.map(r=>r[X])), ty=tertile(V.map(r=>r[Y])), cls={};
+  V.forEach((r,i)=>{ if(tx[i]&&ty[i]) cls[r.iso3]={c:`${tx[i]}-${ty[i]}`,r}; });
+  if(bLayer) bmap.removeLayer(bLayer);
+  bLayer=L.geoJSON(geo,{style:f=>{const o=cls[f.properties.iso3];return {fillColor:o?BIV[o.c]:css("--na"),fillOpacity:.95,color:css("--surface"),weight:.8};},
+    onEachFeature:(f,l)=>{const o=cls[f.properties.iso3]; l.bindTooltip(o?`<b>${o.r.country_fr}</b><br>${lab(X)} : ${(+o.r[X]).toFixed(1)}<br>${lab(Y)} : ${(+o.r[Y]).toFixed(1)}`:f.properties.iso3,{sticky:true});}}).addTo(bmap);
+  safeFit(bmap,bLayer.getBounds(),{padding:[4,4]});
+  const sq=(i,j)=>`<div style="width:30px;height:30px;background:${BIV[i+"-"+j]}"></div>`;
+  $("#bLeg").innerHTML=`<p class="note" style="margin:0 0 6px"><b>Légende (tiers)</b></p><div style="display:flex;gap:10px;align-items:flex-end">
+    <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:12px;color:var(--muted)">${lab(Y)} →</div>
+    <div>${[3,2,1].map(j=>`<div style="display:flex">${[1,2,3].map(i=>sq(i,j)).join("")}</div>`).join("")}
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">${lab(X)} →</div></div></div>`;
+  const hot=Object.values(cls).filter(o=>o.c==="3-3").map(o=>o.r.country_fr).sort((a,b)=>a.localeCompare(b,"fr"));
+  $("#bHot").innerHTML=hot.length?`<b>Tiers supérieur pour les deux (${hot.length} pays)</b> : ${hot.join(", ")}.`:"Aucun pays dans le tiers supérieur pour les deux variables.";
+}
+function quant(a,q){ const s=[...a].sort((x,y)=>x-y), pos=(s.length-1)*q, lo=Math.floor(pos), hi=Math.ceil(pos); return s[lo]+(s[hi]-s[lo])*(pos-lo); }
+function drawGroups(){
+  const V=curView(), v=$("#gVar").value, g=$("#gGrp").value, lab=k=>P.variables[k].label;
+  const order=(P.order[g]||[...new Set(V.map(r=>r[g]).filter(x=>x!=null))].sort()).filter(o=>V.some(r=>r[g]===o&&r[v]!=null));
+  const logS=LOGV.has(v);
+  const groups=order.map(o=>({o,vals:V.filter(r=>r[g]===o&&r[v]!=null&&(!logS||r[v]>0)).map(r=>({x:r[v],n:r.country_fr}))})).filter(G=>G.vals.length);
+  if(!groups.length){ $("#gBox").innerHTML=""; $("#gTest").textContent="Pas assez de données."; $("#gSum").innerHTML=""; return; }
+  const all=groups.flatMap(G=>G.vals.map(p=>p.x)), T=x=>logS?Math.log10(x):x;
+  let lo=Math.min(...all.map(T)), hi=Math.max(...all.map(T)); if(lo===hi){lo-=1;hi+=1;} const pad=(hi-lo)*.06; lo-=pad; hi+=pad;
+  const W=760,H=360,L0=70,R0=20,T0=20,B0=60, Yp=x=>T0+(H-T0-B0)*(1-(T(x)-lo)/(hi-lo)), bw=Math.min(90,(W-L0-R0)/groups.length*.5);
+  const cx=i=>L0+(W-L0-R0)*(i+.5)/groups.length;
+  const ink=css("--ink"), mut=css("--muted"), line=css("--line"), acc=css("--accent");
+  let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Boîtes à moustaches : ${lab(v)} selon ${lab(g)}" style="width:100%;height:auto;font:12px system-ui">`;
+  const ticks=[]; if(logS){ for(let e=Math.ceil(lo);e<=Math.floor(hi);e++) ticks.push(10**e); } else { const st=(hi-lo)/5; for(let k=0;k<=5;k++) ticks.push(lo+k*st); }
+  ticks.forEach(t=>{ const y=Yp(t); svg+=`<line x1="${L0}" x2="${W-R0}" y1="${y}" y2="${y}" stroke="${line}"/><text x="${L0-8}" y="${y+4}" text-anchor="end" fill="${mut}">${logS?t.toLocaleString("fr-FR"):(+t).toFixed(1).replace(".",",")}</text>`; });
+  svg+=`<text x="16" y="${(H-B0+T0)/2}" transform="rotate(-90 16 ${(H-B0+T0)/2})" text-anchor="middle" fill="${mut}">${lab(v)}${logS?" (échelle log)":""}</text>`;
+  const sum=[];
+  groups.forEach((G,i)=>{ const xs=G.vals.map(p=>p.x), q1=quant(xs,.25), md=quant(xs,.5), q3=quant(xs,.75), iqr=q3-q1;
+    const inside=xs.filter(x=>x>=q1-1.5*iqr&&x<=q3+1.5*iqr), wl=Math.min(...inside), wh=Math.max(...inside), c=cx(i);
+    svg+=`<line x1="${c}" x2="${c}" y1="${Yp(wl)}" y2="${Yp(q1)}" stroke="${mut}" stroke-width="1.5"/><line x1="${c}" x2="${c}" y1="${Yp(q3)}" y2="${Yp(wh)}" stroke="${mut}" stroke-width="1.5"/>`;
+    svg+=`<line x1="${c-bw/4}" x2="${c+bw/4}" y1="${Yp(wl)}" y2="${Yp(wl)}" stroke="${mut}" stroke-width="1.5"/><line x1="${c-bw/4}" x2="${c+bw/4}" y1="${Yp(wh)}" y2="${Yp(wh)}" stroke="${mut}" stroke-width="1.5"/>`;
+    svg+=`<rect x="${c-bw/2}" y="${Yp(q3)}" width="${bw}" height="${Math.max(1,Yp(q1)-Yp(q3))}" rx="4" fill="${acc}" fill-opacity=".15" stroke="${acc}" stroke-width="1.5"><title>${G.o} : médiane ${md.toFixed(1)}, Q1 ${q1.toFixed(1)}, Q3 ${q3.toFixed(1)}, ${xs.length} pays</title></rect>`;
+    svg+=`<line x1="${c-bw/2}" x2="${c+bw/2}" y1="${Yp(md)}" y2="${Yp(md)}" stroke="${acc}" stroke-width="3"/>`;
+    G.vals.forEach((p,k)=>{ const out=p.x<wl||p.x>wh; const jx=c+(((k*37)%17)/17-.5)*bw*.6;
+      svg+=`<circle cx="${out?c:jx}" cy="${Yp(p.x)}" r="${out?4:2.6}" fill="${out?"none":ink}" fill-opacity="${out?1:.35}" stroke="${out?ink:"none"}"><title>${p.n} : ${(+p.x).toFixed(1)}</title></circle>`; });
+    svg+=`<text x="${c}" y="${H-B0+20}" text-anchor="middle" fill="${ink}" font-weight="600">${G.o}</text><text x="${c}" y="${H-B0+36}" text-anchor="middle" fill="${mut}">${xs.length} pays</text>`;
+    sum.push([G.o,xs.length,md,q1,q3,Math.min(...xs),Math.max(...xs)]); });
+  svg+=`<text x="${(W+L0)/2}" y="${H-6}" text-anchor="middle" fill="${mut}">${lab(g)}</text></svg>`;
+  $("#gBox").innerHTML=svg;
+  // Kruskal-Wallis
+  const flat=groups.flatMap((G,gi)=>G.vals.map(p=>({x:p.x,gi}))), rk=ranks(flat.map(f=>f.x)), N=flat.length, k=groups.length;
+  if(k>1&&N>k){ const Rs=Array(k).fill(0), ns=Array(k).fill(0); flat.forEach((f,i)=>{Rs[f.gi]+=rk[i];ns[f.gi]++;});
+    const Hs=12/(N*(N+1))*Rs.reduce((s,R,i)=>s+R*R/ns[i],0)-3*(N+1), p=gammq((k-1)/2,Hs/2);
+    $("#gTest").innerHTML=`<b>Test de Kruskal-Wallis</b> : H = ${Hs.toFixed(1).replace(".",",")} ; p = ${fp(p)} (${k} groupes, ${N} pays). ${p<0.05?"Au moins un groupe diffère des autres.":"Pas de différence nette entre les groupes."}`; }
+  else $("#gTest").textContent="";
+  const f=x=>(+x).toFixed(1).replace(".",",");
+  $("#gSum").innerHTML="<thead><tr><th>Groupe</th><th>Pays</th><th>Médiane</th><th>Q1</th><th>Q3</th><th>Min</th><th>Max</th></tr></thead><tbody>"+
+    sum.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td><b>${f(r[2])}</b></td><td>${f(r[3])}</td><td>${f(r[4])}</td><td>${f(r[5])}</td><td>${f(r[6])}</td></tr>`).join("")+"</tbody>";
+}
+
+// ===================================================== districts : niveaux ADM1-ADM4 et limites importées
+const LV_LAB={ADM1:"Régions (ADM1)",ADM2:"Districts (ADM2)",ADM3:"Communes (ADM3)",ADM4:"Localités adm. (ADM4)"};
+function mediaUrl(u){ return u?u.replace(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/raw\//,"https://media.githubusercontent.com/media/$1/$2/"):null; }
+function adm1Url(iso){ return `https://media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09/releaseData/gbOpen/${iso}/ADM1/geoBoundaries-${iso}-ADM1_simplified.geojson`; }
+function fillLevels(){ const iso=$("#dIso").value, have=new Set(INV.filter(r=>r.iso3===iso).map(r=>r.level));
+  const lv=["ADM1","ADM2","ADM3","ADM4"].filter(l=>l==="ADM1"||have.has(l)); const cur=$("#dLevel").value;
+  $("#dLevel").innerHTML=lv.map(l=>`<option value="${l}">${LV_LAB[l]}</option>`).join(""); $("#dLevel").value=lv.includes(cur)?cur:(lv.includes("ADM2")?"ADM2":lv[0]); }
+function nameOf(p){ for(const k of ["unit_name","shapeName","Name","name","NAME","nom","NOM","ADM3_FR","ADM2_FR","ADM2_EN","ADM1_FR","ADM1_EN","admin2Name","admin3Name"]) if(p&&p[k]!=null&&p[k]!=="") return String(p[k]); return null; }
+function normGeo(g){ g.features=g.features.filter(f=>f.geometry); g.features.forEach((f,i)=>{ f.properties=f.properties||{}; f.properties.unit_name=nameOf(f.properties)||`Unité ${i+1}`; }); return g; }
+function kmlToGeoJSON(text){
+  const doc=new DOMParser().parseFromString(text,"text/xml"); const feats=[];
+  const coords=el=>el.textContent.trim().split(/\s+/).map(s=>s.split(",").slice(0,2).map(Number)).filter(p=>p.length===2&&!isNaN(p[0]));
+  doc.querySelectorAll("Placemark").forEach(pm=>{ const props={}; const nm=pm.querySelector("name"); if(nm) props.Name=nm.textContent.trim();
+    pm.querySelectorAll("SimpleData,Data").forEach(d=>{ const k=d.getAttribute("name"); const v=d.querySelector("value")?d.querySelector("value").textContent:d.textContent; if(k) props[k]=v.trim(); });
+    const polys=[...pm.querySelectorAll("Polygon")].map(pg=>{ const outer=pg.querySelector("outerBoundaryIs coordinates"); const inner=[...pg.querySelectorAll("innerBoundaryIs coordinates")];
+      return [coords(outer),...inner.map(coords)]; }).filter(p=>p[0]&&p[0].length>2);
+    if(polys.length) feats.push({type:"Feature",properties:props,geometry:polys.length===1?{type:"Polygon",coordinates:polys[0]}:{type:"MultiPolygon",coordinates:polys}});
+    else { const pt=pm.querySelector("Point coordinates"); if(pt){ const c=coords(pt)[0]; if(c) feats.push({type:"Feature",properties:props,geometry:{type:"Point",coordinates:c}}); } } });
+  return {type:"FeatureCollection",features:feats};
+}
+function showDistrictGeo(g,label){
+  if(dLayer){dmap.removeLayer(dLayer);dLayer=null;} if(typeof S!=="undefined"&&S.statusLayer){dmap.removeLayer(S.statusLayer);S.statusLayer=null;}
+  dGeo=g? normGeo(g):null;
+  if(dGeo&&dGeo.features.length){ dLayer=L.geoJSON(dGeo,{style:{color:"#7a2e1f",weight:1,fillColor:"#e9b7a8",fillOpacity:.25},pointToLayer:(f,ll)=>L.circleMarker(ll,{radius:4}),
+      onEachFeature:(f,l)=>l.bindTooltip(f.properties.unit_name,{sticky:true})}).addTo(dmap); safeFit(dmap,dLayer.getBounds());
+    $("#dInfo").textContent=`${dGeo.features.length} unités affichées · ${label}.`; }
+  else $("#dInfo").textContent="Pas de limites disponibles pour ce choix.";
+  $("#dKml").disabled=$("#dGeo").disabled=!dGeo;
+  if(typeof S!=="undefined"&&S.rows.length) runSurv();
+}
+function loadDistricts(){
+  const iso=$("#dIso").value; fillLevels(); const lvl=$("#dLevel").value, rows=INV.filter(r=>r.iso3===iso);
+  const LVN={ADM2:"Districts (ADM2)",ADM3:"Sous-districts / communes (ADM3)",ADM4:"Localités administratives (ADM4)",LOCALITES:"Villes et villages (points)"};
+  $("#dInv").innerHTML=`<thead><tr><th>Niveau</th><th>Unités</th><th>Source</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${LVN[r.level]||r.level}</td><td>${(r.n_units||0).toLocaleString("fr-FR")}</td><td>${(r.source||"").slice(0,26)}</td></tr>`).join("")+"</tbody>";
+  $("#dInfo").textContent="Chargement des limites…";
+  const src= lvl==="ADM2" ? `geo/ADM2/${iso}.geojson` : lvl==="ADM1" ? adm1Url(iso) : mediaUrl((rows.find(r=>r.level===lvl)||{}).url);
+  fetch(src).then(r=>r.ok?r.json():null).catch(()=>null).then(g=>showDistrictGeo(g, `${LV_LAB[lvl]} – geoBoundaries`));
+  fetch(`geo/localites/${iso}.json`).then(r=>r.ok?r.json():[]).catch(()=>[]).then(l=>{dLoc=l;drawLocalities();});
+}
+function initLevels(){
+  $("#dLevel").onchange=loadDistricts;
+  $("#dOwn").onchange=e=>{ const f=e.target.files[0]; if(!f) return; f.text().then(t=>{ let g=null;
+      try{ g=/\.kml$/i.test(f.name)?kmlToGeoJSON(t):JSON.parse(t); }catch(err){ $("#dInfo").textContent="Fichier illisible : "+err; return; }
+      showDistrictGeo(g, `limites importées (${f.name})`); }); };
+}
+
 // ===================================================== navigation par onglets
 function showView(v){
   const views=[...document.querySelectorAll(".view")].map(x=>x.dataset.view);
@@ -599,7 +825,8 @@ function showView(v){
   document.querySelectorAll(".tabs a").forEach(a=>{const on=a.dataset.v===v;a.classList.toggle("on",on);a.setAttribute("aria-selected",on);});
   if(v==="tableau" && map){ setTimeout(()=>{map.invalidateSize(); if(gj) map.fitBounds(gj.getBounds(),{padding:[4,4]});},50); }
   if(v==="districts" && dmap){ setTimeout(()=>{dmap.invalidateSize(); if(dLayer) dmap.fitBounds(dLayer.getBounds());},50); }
-  if(v==="analyses" && xChart){ setTimeout(()=>xChart.resize(),50); }
+  if(v==="analyses"){ setTimeout(()=>{ if(xChart) xChart.resize(); if(bmap){ bmap.invalidateSize(); if(bLayer) bmap.fitBounds(bLayer.getBounds(),{padding:[4,4]}); } },50); }
+  if(v==="performance"){ setTimeout(drawPerfCharts,50); }
   window.scrollTo(0,0);
 }
 window.addEventListener("hashchange",()=>showView(location.hash.slice(1)));
