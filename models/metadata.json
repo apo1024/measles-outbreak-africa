@@ -1,0 +1,36 @@
+{
+  "target": "outbreak_next3",
+  "trained_on_rows": 6623,
+  "data_until": "2026-09",
+  "outbreak_definition": "cases(t) > max(10, mean + 2 SD of previous 24 months)",
+  "created": "2026-10-04",
+  "features_b": [
+    "log_cases",
+    "log_lag1",
+    "log_lag2",
+    "log_sum_3m",
+    "log_sum_12m",
+    "log_baseline",
+    "ratio_to_threshold",
+    "outbreak_now",
+    "months_since_outbreak",
+    "month_sin",
+    "month_cos",
+    "mcv1",
+    "mcv2",
+    "ivr_score",
+    "children_pct",
+    "log_density",
+    "urban_pct",
+    "log_population",
+    "sr_Afrique australe",
+    "sr_Afrique centrale",
+    "sr_Afrique de l'Est",
+    "sr_Afrique de l'Ouest"
+  ],
+  "thresholds": {
+    "A": 0.19195937816656344,
+    "B": 0.212739497423172,
+    "Ensemble": 0.17402084005460575
+  }
+}

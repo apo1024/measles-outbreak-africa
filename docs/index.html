@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rougeole Afrique – Prédiction</title>
+<meta name="description" content="Surveillance et prédiction des flambées de rougeole dans 54 pays africains – modèles A (logistique) et B (XGBoost).">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f6f5f2; --surface:#ffffff; --ink:#1d2433; --muted:#5d6678; --line:#e3e1db;
+  --accent:#b8322a; --accent-soft:#f6e3e0; --blue:#2a6fb0;
+  --r0:#8cc68a; --r1:#f5c04a; --r2:#f08a2c; --r3:#b83a0c; --na:#d6d6d6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14171d; --surface:#1d222b; --ink:#e8eaee; --muted:#a2a9b6; --line:#2e3440;
+    --accent:#ef6b5f; --accent-soft:#3a2523; --blue:#6aa8e8; --na:#3c424d;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14171d; --surface:#1d222b; --ink:#e8eaee; --muted:#a2a9b6; --line:#2e3440;
+  --accent:#ef6b5f; --accent-soft:#3a2523; --blue:#6aa8e8; --na:#3c424d;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:28px 16px 8px;max-width:1240px;margin:auto}
+header h1{margin:0 0 4px;font-size:clamp(22px,3vw,30px);letter-spacing:-.01em}
+header p{margin:0;color:var(--muted)}
+main{max-width:1240px;margin:auto;padding:8px 16px 48px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:16px 0}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.kpi b{display:block;font-size:26px;font-variant-numeric:tabular-nums}
+.kpi span{color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+.card h2{font-size:17px;margin:0 0 10px}
+#map{height:560px;border-radius:8px;background:var(--bg)}
+@media (max-width:600px){#map{height:420px}}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:10px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--ink);padding:6px 12px;cursor:pointer;font:inherit;font-size:13px}
+.seg button.on{background:var(--ink);color:var(--surface)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-2px}
+.leaflet-container{background:var(--bg)!important;font:inherit}
+.tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+.alert{background:var(--accent-soft);color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--muted);font-weight:600;cursor:pointer;position:sticky;top:0;background:var(--surface)}
+tr:hover td{background:var(--bg)}
+.tablewrap{max-height:520px;overflow:auto}
+.note{font-size:12.5px;color:var(--muted)}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 2px}
+input[type=range]{width:100%}
+select,input[type=number]{width:100%;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit}
+.big{font-size:40px;font-weight:700;font-variant-numeric:tabular-nums}
+.bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.bar>div{height:100%;background:var(--accent)}
+footer{max-width:1240px;margin:auto;padding:0 16px 40px;color:var(--muted);font-size:13px}
+a{color:var(--blue)}
+.dl{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.dl span:first-child{color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Rougeole en Afrique – surveillance et prédiction des flambées</h1>
+  <p id="sub">Chargement…</p>
+</header>
+<main>
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Carte du risque</h2>
+      <div class="seg" id="layerSeg">
+        <button data-l="risk" class="on">Probabilité de flambée (3 mois)</button>
+        <button data-l="ivr">Vulnérabilité (IVR)</button>
+        <button data-l="mcv1">Couverture MCV1</button>
+      </div>
+      <div id="map" role="img" aria-label="Carte de l'Afrique colorée selon l'indicateur choisi"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="card" id="detail">
+      <h2 id="dTitle">Fiche pays</h2>
+      <p class="note">Cliquez sur un pays de la carte ou du tableau.</p>
+      <div id="dBody"></div>
+      <canvas id="chart" height="220"></canvas>
+    </div>
+  </section>
+
+  <section class="grid" style="margin-top:16px">
+    <div class="card">
+      <h2>Classement – probabilité de flambée dans les 3 mois suivants</h2>
+      <div class="tablewrap"><table id="tbl"><thead></thead><tbody></tbody></table></div>
+      <p class="note">« Données > 3 mois » : le pays n'a pas notifié récemment ; « incomplet » : le dernier mois est
+        inférieur à 25 % du niveau habituel (retard de notification probable). Interpréter ces prévisions avec prudence.</p>
+    </div>
+    <div class="card">
+      <h2>Calculateur – Modèle A (régression logistique)</h2>
+      <p class="note">Simulez la situation du dernier mois notifié d'un pays. Le modèle B (XGBoost) est disponible dans
+        l'application Python (Streamlit / CLI).</p>
+      <label for="cIso">Pays</label><select id="cIso"></select>
+      <label for="cCases">Cas notifiés ce mois : <b id="vCases"></b></label><input type="number" id="cCases" min="0" step="10">
+      <label for="cMcv1">MCV1 (%) : <b id="vMcv1"></b></label><input type="range" id="cMcv1" min="0" max="100">
+      <label for="cMcv2">MCV2 (%) : <b id="vMcv2"></b></label><input type="range" id="cMcv2" min="0" max="100">
+      <label for="cIvr">IVR : <b id="vIvr"></b></label><input type="range" id="cIvr" min="0" max="100" step="0.5">
+      <div style="margin-top:14px"><span class="note">Probabilité de flambée (t+1 à t+3)</span>
+        <div class="big" id="cOut">–</div><div class="bar"><div id="cBar" style="width:0"></div></div>
+        <p class="note" id="cInfo"></p></div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:16px">
+    <h2>Méthode en bref</h2>
+    <p><b>Données</b> : surveillance mensuelle provisoire de l'OMS (cas cliniques, épi-liés et confirmés), couverture
+      vaccinale WUENIC (MCV1, MCV2), indicateurs de la Banque mondiale, limites geoBoundaries (KML).
+      <b>Flambée</b> : mois où les cas dépassent max(10 ; moyenne + 2 écarts-types des 24 mois précédents).
+      <b>IVR</b> : indice composite 0-100 (déficit vaccinal 35 %, accès aux soins 20 %, démographie, pauvreté,
+      malnutrition 15 % chacun). <b>Modèle A</b> : régression logistique (+ binomiale négative pour les comptes).
+      <b>Modèle B</b> : XGBoost. Validation temporelle 2023-2026 : AUC 0,82 (A), 0,84 (B), 0,84 (ensemble).</p>
+    <p class="note">Outil de recherche : il ne remplace ni l'investigation de terrain ni le jugement des autorités sanitaires.</p>
+  </section>
+</main>
+<footer>
+  Miracle Destine Apollon, épidémiologiste de terrain – Chicago, IL (USA) – <a href="mailto:info@idreamlore.com">info@idreamlore.com</a> ·
+  <a href="https://github.com/apo1024/measles-outbreak-africa">Code source et documentation</a> · Licence MIT (code) ; données : OMS, Banque mondiale, geoBoundaries.
+</footer>
+<script>
+const $ = s => document.querySelector(s);
+const RISK = {"Faible":"--r0","Modéré":"--r1","Élevé":"--r2","Très élevé":"--r3"};
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const pct = x => x==null ? "–" : (100*x).toFixed(1).replace(".",",")+" %";
+const num = x => x==null ? "–" : Math.round(x).toLocaleString("fr-FR");
+let F, H, A, C, geo, layer="risk", map, gj, chart, byIso={};
+
+Promise.all(["data/forecast.json","data/history.json","data/model_a.json","data/calculator_inputs.json","data/africa_adm0.geojson"]
+  .map(u => fetch(u).then(r => r.json()))).then(([f,h,a,c,g]) => {
+  F=f; H=h; A=a; C=c; geo=g;
+  F.forecast.forEach(r => byIso[r.iso3]=r);
+  $("#sub").textContent = `Données OMS jusqu'à ${F.meta.data_until} · modèles entraînés le ${F.meta.created} · ${F.meta.n_countries} pays`;
+  kpis(); drawMap(); table(); calculator();
+  const first = [...F.forecast].filter(r=>r.p_ensemble!=null).sort((x,y)=>y.p_ensemble-x.p_ensemble)[0];
+  if (first) detail(first.iso3);
+}).catch(e => { $("#sub").textContent = "Erreur de chargement des données : " + e; });
+
+function kpis(){
+  const fr = F.forecast.filter(r=>r.p_ensemble!=null);
+  const hi = fr.filter(r=>r.risk==="Élevé"||r.risk==="Très élevé").length;
+  const vh = F.forecast.filter(r=>r.ivr_class==="Très élevée").length;
+  $("#kpis").innerHTML = [
+    [fr.length,"pays avec prévision"],[F.meta.n_alerts,"pays en alerte"],[hi,"risque élevé ou très élevé"],
+    [vh,"pays à vulnérabilité très élevée"],[pct(F.meta.thresholds.Ensemble),"seuil d'alerte (ensemble)"]]
+    .map(([v,l])=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join("");
+}
+
+function color(r){
+  if(!r) return css("--na");
+  if(layer==="risk") return r.risk ? css(RISK[r.risk]) : css("--na");
+  if(layer==="ivr"){ const v=r.ivr; if(v==null) return css("--na");
+    return v<30?"#fde8a8":v<45?"#f9b45b":v<60?"#e8702a":"#b2241b"; }
+  const v=r.mcv1; if(v==null) return css("--na");
+  return v<60?"#a50026":v<70?"#f46d43":v<80?"#fdae61":v<90?"#a6d96a":v<95?"#66bd63":"#1a9850";
+}
+function legend(){
+  const L = layer==="risk" ? [["Faible (<15 %)",css("--r0")],["Modéré (15-30 %)",css("--r1")],["Élevé (30-50 %)",css("--r2")],["Très élevé (≥50 %)",css("--r3")],["Pas de prévision",css("--na")]]
+    : layer==="ivr" ? [["< 30","#fde8a8"],["30-45","#f9b45b"],["45-60","#e8702a"],["≥ 60","#b2241b"]]
+    : [["< 60 %","#a50026"],["60-69","#f46d43"],["70-79","#fdae61"],["80-89","#a6d96a"],["90-94","#66bd63"],["≥ 95 %","#1a9850"]];
+  $("#legend").innerHTML = L.map(([t,c])=>`<span><i style="background:${c}"></i>${t}</span>`).join("");
+}
+function drawMap(){
+  map = L.map("map",{zoomSnap:.25,attributionControl:false,scrollWheelZoom:false});
+  gj = L.geoJSON(geo,{style:f=>({fillColor:color(byIso[f.properties.iso3]),fillOpacity:.9,color:css("--surface"),weight:.8}),
+    onEachFeature:(f,l)=>{ const r=byIso[f.properties.iso3];
+      l.bindTooltip(r?`<b>${r.country}</b><br>P(flambée 3 mois) : ${pct(r.p_ensemble)}<br>IVR : ${r.ivr??"–"} · MCV1 : ${r.mcv1??"–"} %`:f.properties.iso3,{sticky:true});
+      l.on("click",()=>detail(f.properties.iso3)); }}).addTo(map);
+  map.fitBounds(gj.getBounds(),{padding:[4,4]});
+  legend();
+  document.querySelectorAll("#layerSeg button").forEach(b=>b.onclick=()=>{
+    document.querySelectorAll("#layerSeg button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+    layer=b.dataset.l; gj.setStyle(f=>({fillColor:color(byIso[f.properties.iso3])})); legend(); });
+}
+
+function detail(iso){
+  const r=byIso[iso]; if(!r) return;
+  $("#dTitle").textContent = `${r.country} (${iso})`;
+  const rows = [["Sous-région",r.subregion],["Dernier mois consolidé",r.period??"–"],["Cas ce mois",num(r.cases)],
+    ["Seuil épidémique",num(r.epidemic_threshold)],["P(flambée) modèle A",pct(r.p_A)],["P(flambée) modèle B",pct(r.p_B)],
+    ["P(flambée) ensemble",`<b>${pct(r.p_ensemble)}</b> ${r.alert?'<span class="tag alert">ALERTE</span>':""}`],
+    ["Niveau de risque",r.risk??"–"],["IVR (dernière année)", `${r.ivr??"–"} (${r.ivr_class??"–"})`],
+    ["MCV1 / MCV2",`${r.mcv1??"–"} % / ${r.mcv2??"–"} %`]];
+  let warn = ""; if(r.stale) warn+="⚠️ Données de plus de 3 mois. "; if(r.possibly_incomplete) warn+="⚠️ Dernier mois possiblement incomplet.";
+  $("#dBody").innerHTML = rows.map(([k,v])=>`<div class="dl"><span>${k}</span><span>${v}</span></div>`).join("")+(warn?`<p class="note">${warn}</p>`:"");
+  const h=H[iso]; if(chart) chart.destroy(); if(!h) return;
+  const n=h.period.length, s=Math.max(0,n-72);
+  chart = new Chart($("#chart"),{data:{labels:h.period.slice(s),datasets:[
+    {type:"bar",label:"Cas mensuels",data:h.cases.slice(s),backgroundColor:css("--blue")},
+    {type:"line",label:"Seuil épidémique",data:h.threshold.slice(s),borderColor:css("--accent"),borderDash:[5,4],pointRadius:0,borderWidth:1.5}]},
+    options:{responsive:true,plugins:{legend:{labels:{color:css("--muted"),boxWidth:12}}},
+      scales:{x:{ticks:{color:css("--muted"),maxTicksLimit:8},grid:{display:false}},y:{ticks:{color:css("--muted")},grid:{color:css("--line")}}}}});
+  if($("#cIso").value!==iso && C[iso]){ $("#cIso").value=iso; loadCalc(); }
+}
+
+let sortKey="p_ensemble", sortDir=-1;
+function table(){
+  const cols=[["country","Pays"],["period","Mois"],["p_A","P(A)"],["p_B","P(B)"],["p_ensemble","P(ens.)"],["risk","Risque"],["ivr","IVR"],["mcv1","MCV1"],["flags","Qualité"]];
+  $("#tbl thead").innerHTML="<tr>"+cols.map(([k,l])=>`<th data-k="${k}">${l}</th>`).join("")+"</tr>";
+  document.querySelectorAll("#tbl th").forEach(th=>th.onclick=()=>{ const k=th.dataset.k; sortDir = k===sortKey?-sortDir:-1; sortKey=k; table(); });
+  const rows=[...F.forecast].sort((a,b)=>{ const x=a[sortKey],y=b[sortKey]; if(x==null) return 1; if(y==null) return -1; return (x>y?1:x<y?-1:0)*sortDir; });
+  $("#tbl tbody").innerHTML=rows.map(r=>`<tr data-i="${r.iso3}"><td>${r.country}${r.alert?' <span class="tag alert">alerte</span>':""}</td><td>${r.period??"–"}</td>
+    <td>${pct(r.p_A)}</td><td>${pct(r.p_B)}</td><td><b>${pct(r.p_ensemble)}</b></td><td>${r.risk??"–"}</td><td>${r.ivr??"–"}</td><td>${r.mcv1??"–"}</td>
+    <td>${[r.stale?"> 3 mois":"",r.possibly_incomplete?"incomplet":""].filter(Boolean).join(", ")}</td></tr>`).join("");
+  document.querySelectorAll("#tbl tbody tr").forEach(tr=>tr.onclick=()=>detail(tr.dataset.i));
+}
+
+function calculator(){
+  const isos=Object.keys(C).sort((a,b)=>(byIso[a]?.country||a).localeCompare(byIso[b]?.country||b,"fr"));
+  $("#cIso").innerHTML=isos.map(i=>`<option value="${i}">${byIso[i]?.country||i}</option>`).join("");
+  $("#cIso").value = isos.includes("NGA")?"NGA":isos[0];
+  $("#cIso").onchange=loadCalc; ["cCases","cMcv1","cMcv2","cIvr"].forEach(id=>$("#"+id).oninput=calc);
+  loadCalc();
+}
+function loadCalc(){
+  const c=C[$("#cIso").value];
+  $("#cCases").value=Math.round(c.cases); $("#cMcv1").value=c.mcv1; $("#cMcv2").value=c.mcv2; $("#cIvr").value=c.ivr_score; calc();
+}
+function calc(){
+  const c={...C[$("#cIso").value]}; const cases=+$("#cCases").value||0;
+  c.log_cases=Math.log1p(cases); c.ratio_to_threshold=Math.min(20,Math.max(0,cases/c.epidemic_threshold));
+  c.outbreak_now = cases>c.epidemic_threshold?1:0; c.mcv1=+$("#cMcv1").value; c.mcv2=+$("#cMcv2").value; c.ivr_score=+$("#cIvr").value;
+  $("#vCases").textContent=num(cases); $("#vMcv1").textContent=c.mcv1; $("#vMcv2").textContent=c.mcv2; $("#vIvr").textContent=c.ivr_score;
+  let eta=A.coef.const; A.features.forEach(f=>{ eta += A.coef[f]*((c[f]-A.mean[f])/A.sd[f]); });
+  const p=1/(1+Math.exp(-eta));
+  $("#cOut").textContent=pct(p); $("#cBar").style.width=(100*p).toFixed(1)+"%";
+  const thr=F.meta.thresholds.A;
+  $("#cInfo").innerHTML=`Mois de référence : ${c.period} · seuil épidémique : ${num(c.epidemic_threshold)} cas · ${p>=thr?'<span class="tag alert">au-dessus du seuil d\'alerte du modèle A ('+pct(thr)+')</span>':"sous le seuil d'alerte du modèle A ("+pct(thr)+")"}`;
+}
+</script>
+</body>
+</html>

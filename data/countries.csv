@@ -1,0 +1,55 @@
+iso3,country_fr,subregion,country_en,who_region,centroid_lon,centroid_lat,area_km2
+DZA,Algérie,Afrique du Nord,Algeria,AFR,2.6799,27.894,2310039.0
+EGY,Égypte,Afrique du Nord,Egypt,EMR,29.8812,26.4025,1000011.0
+LBY,Libye,Afrique du Nord,Libya,EMR,18.0358,26.9018,1623766.0
+MAR,Maroc,Afrique du Nord,Morocco,EMR,-9.0034,28.8976,682783.0
+TUN,Tunisie,Afrique du Nord,Tunisia,EMR,9.5794,34.0585,155229.0
+MRT,Mauritanie,Afrique du Nord,Mauritania,AFR,-10.3602,20.1727,1035098.0
+BEN,Bénin,Afrique de l'Ouest,Benin,AFR,2.3407,9.6393,115454.0
+BFA,Burkina Faso,Afrique de l'Ouest,Burkina Faso,AFR,-1.749,12.2653,273375.0
+CPV,Cabo Verde,Afrique de l'Ouest,Cabo Verde,AFR,-23.9743,15.9408,4063.0
+CIV,Côte d'Ivoire,Afrique de l'Ouest,Côte d'Ivoire,AFR,-5.5689,7.6195,320677.0
+GMB,Gambie,Afrique de l'Ouest,Gambia,AFR,-15.3815,13.4497,10565.0
+GHA,Ghana,Afrique de l'Ouest,Ghana,AFR,-1.2078,7.9518,238761.0
+GIN,Guinée,Afrique de l'Ouest,Guinea,AFR,-10.93,10.4321,244935.0
+GNB,Guinée-Bissau,Afrique de l'Ouest,Guinea-Bissau,AFR,-14.9937,12.0081,35271.0
+LBR,Libéria,Afrique de l'Ouest,Liberia,AFR,-9.3092,6.4455,95845.0
+MLI,Mali,Afrique de l'Ouest,Mali,AFR,-3.5389,17.2542,1254303.0
+NER,Niger,Afrique de l'Ouest,Niger,AFR,9.3758,17.3558,1181740.0
+NGA,Nigéria,Afrique de l'Ouest,Nigeria,AFR,8.1027,9.5608,912727.0
+SEN,Sénégal,Afrique de l'Ouest,Senegal,AFR,-14.4696,14.3517,196692.0
+SLE,Sierra Leone,Afrique de l'Ouest,Sierra Leone,AFR,-11.7912,8.5578,72609.0
+TGO,Togo,Afrique de l'Ouest,Togo,AFR,0.979,8.5245,56901.0
+CMR,Cameroun,Afrique centrale,Cameroon,AFR,12.7411,5.6791,465741.0
+CAF,République centrafricaine,Afrique centrale,Central African Republic,AFR,20.4798,6.5611,619742.0
+TCD,Tchad,Afrique centrale,Chad,AFR,18.6646,15.2707,1273879.0
+COG,Congo,Afrique centrale,Congo,AFR,15.22,-0.8433,343273.0
+COD,RD Congo,Afrique centrale,Democratic Republic of the Congo,AFR,23.6,-2.8383,2308812.0
+GNQ,Guinée équatoriale,Afrique centrale,Equatorial Guinea,AFR,10.3418,1.7057,27033.0
+GAB,Gabon,Afrique centrale,Gabon,AFR,11.794,-0.603,259091.0
+STP,Sao Tomé-et-Principe,Afrique centrale,Sao Tome and Principe,AFR,6.7133,0.4316,991.0
+BDI,Burundi,Afrique centrale,Burundi,AFR,29.9296,-3.3315,25048.0
+COM,Comores,Afrique de l'Est,Comoros,AFR,43.6823,-11.8906,1650.0
+DJI,Djibouti,Afrique de l'Est,Djibouti,EMR,42.5662,11.749,21848.0
+ERI,Érythrée,Afrique de l'Est,Eritrea,AFR,38.8487,15.3663,120395.0
+ETH,Éthiopie,Afrique de l'Est,Ethiopia,AFR,39.6373,8.5887,1126360.0
+KEN,Kenya,Afrique de l'Est,Kenya,AFR,37.817,0.6028,590903.0
+MDG,Madagascar,Afrique de l'Est,Madagascar,AFR,46.7203,-19.3036,588544.0
+MUS,Maurice,Afrique de l'Est,Mauritius,AFR,57.8804,-20.1235,1999.0
+RWA,Rwanda,Afrique de l'Est,Rwanda,AFR,29.9459,-2.0005,23679.0
+SYC,Seychelles,Afrique de l'Est,Seychelles,AFR,51.4947,-6.9518,481.0
+SOM,Somalie,Afrique de l'Est,Somalia,EMR,45.8609,6.0243,633039.0
+SSD,Soudan du Sud,Afrique de l'Est,South Sudan,AFR,30.3504,7.2667,632498.0
+SDN,Soudan,Afrique de l'Est,Sudan,EMR,29.99,15.9545,1871528.0
+TZA,Tanzanie,Afrique de l'Est,United Republic of Tanzania,AFR,34.9668,-6.4239,889851.0
+UGA,Ouganda,Afrique de l'Est,Uganda,AFR,32.3438,1.5116,209008.0
+AGO,Angola,Afrique australe,Angola,AFR,17.4108,-12.2174,1282717.0
+BWA,Botswana,Afrique australe,Botswana,AFR,23.8203,-22.1426,578131.0
+SWZ,Eswatini,Afrique australe,Eswatini,AFR,31.4976,-26.564,17361.0
+LSO,Lesotho,Afrique australe,Lesotho,AFR,28.2475,-29.58,30552.0
+MWI,Malawi,Afrique australe,Malawi,AFR,34.2614,-13.5197,95821.0
+MOZ,Mozambique,Afrique australe,Mozambique,AFR,35.5913,-17.1312,787281.0
+NAM,Namibie,Afrique australe,Namibia,AFR,17.2149,-22.0356,825770.0
+ZAF,Afrique du Sud,Afrique australe,South Africa,AFR,25.1506,-28.8785,1220824.0
+ZMB,Zambie,Afrique australe,Zambia,AFR,27.8088,-13.4285,751176.0
+ZWE,Zimbabwe,Afrique australe,Zimbabwe,AFR,29.8719,-18.9764,390769.0
