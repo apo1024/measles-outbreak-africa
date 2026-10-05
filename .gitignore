@@ -6,3 +6,4 @@ data/raw/
 data/geo/
 data/rougeole_afrique.sqlite
 .streamlit/secrets.toml
+data/geo_cache/

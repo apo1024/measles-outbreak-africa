@@ -60,6 +60,13 @@ select,input[type=number]{width:100%;padding:7px;border:1px solid var(--line);bo
 .big{font-size:40px;font-weight:700;font-variant-numeric:tabular-nums}
 .bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
 .bar>div{height:100%;background:var(--accent)}
+.ctrl{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.ctrl label{margin:0;min-width:140px;flex:1}
+.ctrl label.chk{flex:0 0 auto;min-width:0;display:flex;gap:6px;align-items:center}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer;font:inherit;font-size:13px}
+.btn:hover{background:var(--bg)}
+.btn:disabled{opacity:.5;cursor:default}
+code{font-size:12px}
 footer{max-width:1240px;margin:auto;padding:0 16px 40px;color:var(--muted);font-size:13px}
 a{color:var(--blue)}
 .dl{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
@@ -115,6 +122,44 @@ a{color:var(--blue)}
     </div>
   </section>
 
+  <section class="card" style="margin-top:16px" id="cross">
+    <h2>Analyses croisées entre pays</h2>
+    <p class="note">Croisez deux variables (une année ou une moyenne sur plusieurs années). Corrélations écologiques entre pays : pas d'inférence causale individuelle.</p>
+    <div class="ctrl">
+      <label>De <select id="xY0"></select></label><label>à <select id="xY1"></select></label>
+      <label>Variable X <select id="xX"></select></label><label>Variable Y <select id="xYv"></select></label>
+      <label class="chk"><input type="checkbox" id="xLogY"> Y en échelle log</label>
+    </div>
+    <div class="grid" style="margin-top:8px">
+      <div><canvas id="xChart" height="300"></canvas></div>
+      <div><div class="kpis" id="xStats" style="margin-top:0"></div>
+        <h3 style="font-size:15px;margin:12px 0 6px">Tableau croisé (nombre de pays)</h3>
+        <div class="ctrl"><label>Lignes <select id="xRow"></select></label><label>Colonnes <select id="xCol"></select></label></div>
+        <div class="tablewrap" style="max-height:260px"><table id="xTab"></table></div>
+        <p class="note" id="xChi"></p></div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:16px" id="districts">
+    <h2>Districts et localités</h2>
+    <p class="note">Limites infranationales recherchées pour les 54 pays (geoBoundaries : limites humanitaires OCHA COD-AB, sinon gbOpen) et villes et villages de plus de 1 000 habitants (GeoNames). Les fichiers KML sont générés dans votre navigateur.</p>
+    <div class="ctrl">
+      <label>Pays <select id="dIso"></select></label>
+      <label>Localités : population minimale <select id="dPop"><option>1000</option><option selected>5000</option><option>20000</option><option>100000</option></select></label>
+    </div>
+    <div class="grid" style="margin-top:8px">
+      <div id="dmap" style="height:480px;border-radius:8px"></div>
+      <div><div class="tablewrap" style="max-height:300px"><table id="dInv"></table></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          <button class="btn" id="dKml">Districts (KML)</button>
+          <button class="btn" id="dGeo">Districts (GeoJSON)</button>
+          <button class="btn" id="dLoc">Localités (KML)</button>
+        </div>
+        <p class="note" id="dInfo"></p>
+        <p class="note">Surveillance par district avec vos propres données (rapprochement des noms, seuils, alertes) : application Python, onglet « Districts &amp; localités », ou commande <code>python -m measles_predict districts</code>.</p></div>
+    </div>
+  </section>
+
   <section class="card" style="margin-top:16px">
     <h2>Méthode en bref</h2>
     <p><b>Données</b> : surveillance mensuelle provisoire de l'OMS (cas cliniques, épi-liés et confirmés), couverture
@@ -146,6 +191,7 @@ Promise.all(["data/forecast.json","data/history.json","data/model_a.json","data/
   kpis(); drawMap(); table(); calculator();
   const first = [...F.forecast].filter(r=>r.p_ensemble!=null).sort((x,y)=>y.p_ensemble-x.p_ensemble)[0];
   if (first) detail(first.iso3);
+  initCross(); initDistricts();
 }).catch(e => { $("#sub").textContent = "Erreur de chargement des données : " + e; });
 
 function kpis(){
@@ -239,6 +285,119 @@ function calc(){
   const thr=F.meta.thresholds.A;
   $("#cInfo").innerHTML=`Mois de référence : ${c.period} · seuil épidémique : ${num(c.epidemic_threshold)} cas · ${p>=thr?'<span class="tag alert">au-dessus du seuil d\'alerte du modèle A ('+pct(thr)+')</span>':"sous le seuil d'alerte du modèle A ("+pct(thr)+")"}`;
 }
+// ===================================================== analyses croisées
+const SRC = {"Afrique de l'Ouest":"#2a78b5","Afrique centrale":"#d9534f","Afrique de l'Est":"#e8a33d","Afrique australe":"#3a9e6f","Afrique du Nord":"#8064a2"};
+let P, xChart;
+function lgamma(x){const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];let y=x,t=x+5.5;t-=(x+0.5)*Math.log(t);let s=1.000000000190015;for(const ci of c)s+=ci/++y;return -t+Math.log(2.5066282746310005*s/x);}
+function betacf(a,b,x){const T=1e-30;let qab=a+b,qap=a+1,qam=a-1,c=1,d=1-qab*x/qap;d=1/(Math.abs(d)<T?T:d);let h=d;
+  for(let m=1;m<300;m++){const m2=2*m;let aa=m*(b-m)*x/((qam+m2)*(a+m2));d=1+aa*d;d=1/(Math.abs(d)<T?T:d);c=1+aa/c;c=Math.abs(c)<T?T:c;h*=d*c;
+    aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));d=1+aa*d;d=1/(Math.abs(d)<T?T:d);c=1+aa/c;c=Math.abs(c)<T?T:c;const del=d*c;h*=del;if(Math.abs(del-1)<3e-12)break;}return h;}
+function ibeta(a,b,x){if(x<=0)return 0;if(x>=1)return 1;const bt=Math.exp(lgamma(a+b)-lgamma(a)-lgamma(b)+a*Math.log(x)+b*Math.log(1-x));return x<(a+1)/(a+b+2)?bt*betacf(a,b,x)/a:1-bt*betacf(b,a,1-x)/b;}
+function pCorr(r,n){const df=n-2;if(Math.abs(r)>=1)return 0;const t2=r*r*df/(1-r*r);return ibeta(df/2,0.5,df/(df+t2));}
+function gammq(a,x){if(x<=0)return 1;if(x<a+1){let ap=a,sum=1/a,del=sum;for(let n=0;n<500;n++){ap++;del*=x/ap;sum+=del;if(Math.abs(del)<Math.abs(sum)*3e-12)break;}return 1-sum*Math.exp(-x+a*Math.log(x)-lgamma(a));}
+  const T=1e-30;let b=x+1-a,c=1/T,d=1/b,h=d;for(let i=1;i<500;i++){const an=-i*(i-a);b+=2;d=an*d+b;d=Math.abs(d)<T?T:d;c=b+an/c;c=Math.abs(c)<T?T:c;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<3e-12)break;}return Math.exp(-x+a*Math.log(x)-lgamma(a))*h;}
+function pearson(x,y){const n=x.length,mx=x.reduce((a,b)=>a+b)/n,my=y.reduce((a,b)=>a+b)/n;let sxy=0,sxx=0,syy=0;for(let i=0;i<n;i++){sxy+=(x[i]-mx)*(y[i]-my);sxx+=(x[i]-mx)**2;syy+=(y[i]-my)**2;}return {r:sxy/Math.sqrt(sxx*syy),b:sxy/sxx,a:my-sxy/sxx*mx};}
+function ranks(v){const idx=v.map((x,i)=>[x,i]).sort((a,b)=>a[0]-b[0]);const r=Array(v.length);for(let i=0;i<idx.length;){let j=i;while(j+1<idx.length&&idx[j+1][0]===idx[i][0])j++;for(let k=i;k<=j;k++)r[idx[k][1]]=(i+j)/2+1;i=j+1;}return r;}
+const fp = p => p<0.001?"< 0,001":p.toFixed(3).replace(".",",");
+const f2 = x => x.toFixed(2).replace(".",",");
+function classify(r){const c={...r};
+  c.mcv1_class = r.mcv1==null?null: r.mcv1<60?"< 60 %":r.mcv1<80?"60-79 %":r.mcv1<90?"80-89 %":"≥ 90 %";
+  c.incidence_class = r.incidence_pm==null?null: r.incidence_pm<5?"< 5":r.incidence_pm<20?"5-20":r.incidence_pm<50?"20-50":r.incidence_pm<100?"50-100":"≥ 100";
+  c.outbreak_any = r.outbreak_months==null?null:(r.outbreak_months>0?"Oui":"Non"); return c;}
+function periodView(y0,y1){const by={};P.rows.filter(r=>r.year>=y0&&r.year<=y1).forEach(r=>{(by[r.iso3]=by[r.iso3]||[]).push(r);});
+  return Object.values(by).map(rs=>{const o={iso3:rs[0].iso3,country_fr:rs[0].country_fr,subregion:rs[0].subregion};
+    for(const [k,m] of Object.entries(P.variables)){
+      if(m.kind==="num"){const v=rs.map(r=>r[k]).filter(v=>v!=null);o[k]=v.length?v.reduce((a,b)=>a+b)/v.length:null;}
+      else if(k!=="subregion"){const v=rs.map(r=>r[k]).filter(v=>v!=null);const cnt={};v.forEach(x=>cnt[x]=(cnt[x]||0)+1);o[k]=v.length?Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0]:null;}}
+    return classify(o);});}
+function initCross(){
+  fetch("data/panel.json").then(r=>r.json()).then(p=>{P=p;
+    const yrs=[...new Set(P.rows.map(r=>r.year))].sort();
+    for(const id of ["xY0","xY1"]) $("#"+id).innerHTML=yrs.map(y=>`<option>${y}</option>`).join("");
+    $("#xY0").value=Math.max(yrs[0],2023); $("#xY1").value=Math.min(yrs[yrs.length-1],2025);
+    const nums=Object.entries(P.variables).filter(([k,m])=>m.kind==="num"), cats=Object.entries(P.variables).filter(([k,m])=>m.kind==="cat");
+    const opt=a=>a.map(([k,m])=>`<option value="${k}">${m.label}</option>`).join("");
+    $("#xX").innerHTML=opt(nums); $("#xYv").innerHTML=opt(nums); $("#xRow").innerHTML=opt(cats); $("#xCol").innerHTML=opt(cats);
+    $("#xX").value="ivr_score"; $("#xYv").value="incidence_pm"; $("#xLogY").checked=true; $("#xRow").value="ivr_class"; $("#xCol").value="incidence_class";
+    ["xY0","xY1","xX","xYv","xLogY","xRow","xCol"].forEach(id=>$("#"+id).onchange=drawCross); drawCross();});
+}
+function drawCross(){
+  let y0=+$("#xY0").value,y1=+$("#xY1").value; if(y1<y0)[y0,y1]=[y1,y0];
+  const V=periodView(y0,y1), X=$("#xX").value, Y=$("#xYv").value, logY=$("#xLogY").checked;
+  const pts=V.filter(r=>r[X]!=null&&r[Y]!=null&&(!logY||r[Y]>0));
+  const xs=pts.map(r=>r[X]), ys=pts.map(r=>logY?Math.log10(r[Y]):r[Y]);
+  const lab=k=>P.variables[k].label;
+  if(xChart) xChart.destroy();
+  const ds=Object.entries(SRC).map(([sr,c])=>({label:sr,backgroundColor:c,pointRadius:5,data:pts.filter(r=>r.subregion===sr).map(r=>({x:r[X],y:r[Y],n:r.country_fr}))}));
+  let stats=[];
+  if(pts.length>=4){const pr=pearson(xs,ys), sr=pearson(ranks(pts.map(r=>r[X])),ranks(pts.map(r=>r[Y]))).r;
+    const xmin=Math.min(...xs),xmax=Math.max(...xs),line=[xmin,xmax].map(x=>({x,y:logY?10**(pr.a+pr.b*x):pr.a+pr.b*x}));
+    ds.push({type:"line",label:"Régression",data:line,borderColor:css("--ink"),borderDash:[5,4],pointRadius:0,borderWidth:1.5});
+    stats=[[f2(sr),"Spearman ρ (p "+fp(pCorr(sr,pts.length))+")"],[f2(pr.r),"Pearson r (p "+fp(pCorr(pr.r,pts.length))+")"],[f2(pr.r*pr.r),"R²"],[pts.length,"pays"]];}
+  $("#xStats").innerHTML=stats.map(([v,l])=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join("");
+  xChart=new Chart($("#xChart"),{type:"scatter",data:{datasets:ds},options:{responsive:true,
+    plugins:{legend:{labels:{color:css("--muted"),boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>`${c.raw.n||""} : ${lab(X)} ${(+c.raw.x).toFixed(1)} ; ${lab(Y)} ${(+c.raw.y).toFixed(1)}`}}},
+    scales:{x:{title:{display:true,text:lab(X),color:css("--muted")},ticks:{color:css("--muted")},grid:{color:css("--line")}},
+            y:{type:logY?"logarithmic":"linear",title:{display:true,text:lab(Y),color:css("--muted")},ticks:{color:css("--muted")},grid:{color:css("--line")}}}}});
+  const R=$("#xRow").value, Cc=$("#xCol").value, sub=V.filter(r=>r[R]!=null&&r[Cc]!=null);
+  const ord=k=>P.order[k]||[...new Set(sub.map(r=>r[k]))].sort();
+  const rows=ord(R).filter(v=>sub.some(r=>r[R]===v)), cols=ord(Cc).filter(v=>sub.some(r=>r[Cc]===v));
+  const M=rows.map(a=>cols.map(b=>sub.filter(r=>r[R]===a&&r[Cc]===b).length));
+  const rt=M.map(r=>r.reduce((a,b)=>a+b,0)), ct=cols.map((_,j)=>M.reduce((a,r)=>a+r[j],0)), N=rt.reduce((a,b)=>a+b,0);
+  $("#xTab").innerHTML=`<thead><tr><th>${P.variables[R].label}</th>${cols.map(c=>`<th>${c}</th>`).join("")}<th>Total</th></tr></thead><tbody>`+
+    rows.map((a,i)=>`<tr><td>${a}</td>${M[i].map(v=>`<td>${v}</td>`).join("")}<td><b>${rt[i]}</b></td></tr>`).join("")+`</tbody>`;
+  if(rows.length>1&&cols.length>1&&N>0){let chi=0;M.forEach((r,i)=>r.forEach((o,j)=>{const e=rt[i]*ct[j]/N;if(e>0)chi+=(o-e)**2/e;}));
+    const df=(rows.length-1)*(cols.length-1), p=gammq(df/2,chi/2), V2=Math.sqrt(chi/(N*(Math.min(rows.length,cols.length)-1)));
+    $("#xChi").textContent=`χ² = ${chi.toFixed(1).replace(".",",")} ; ddl = ${df} ; p = ${fp(p)} ; V de Cramér = ${f2(V2)} (n = ${N} pays). Effectifs faibles : prudence.`;}
+  else $("#xChi").textContent="";
+}
+
+// ===================================================== districts & localités
+let dmap, dLayer, lLayer, INV, dGeo=null, dLoc=[];
+function kmlEsc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function ring(c){return `<LinearRing><coordinates>${c.map(p=>p[0]+","+p[1]).join(" ")}</coordinates></LinearRing>`;}
+function polyKML(rings){return `<Polygon><outerBoundaryIs>${ring(rings[0])}</outerBoundaryIs>${rings.slice(1).map(r=>`<innerBoundaryIs>${ring(r)}</innerBoundaryIs>`).join("")}</Polygon>`;}
+function toKML(fc,nameKey){const pm=fc.features.map(f=>{const g=f.geometry;let geom="";
+  if(g.type==="Polygon")geom=polyKML(g.coordinates);else if(g.type==="MultiPolygon")geom=`<MultiGeometry>${g.coordinates.map(polyKML).join("")}</MultiGeometry>`;
+  else if(g.type==="Point")geom=`<Point><coordinates>${g.coordinates[0]},${g.coordinates[1]}</coordinates></Point>`;
+  const ext=Object.entries(f.properties).map(([k,v])=>`<Data name="${kmlEsc(k)}"><value>${kmlEsc(v)}</value></Data>`).join("");
+  return `<Placemark><name>${kmlEsc(f.properties[nameKey]??"")}</name><ExtendedData>${ext}</ExtendedData>${geom}</Placemark>`;}).join("");
+  return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>${pm}</Document></kml>`;}
+function saveFile(name,text,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);}
+function initDistricts(){
+  fetch("data/boundaries_inventory.json").then(r=>r.json()).then(inv=>{INV=inv;
+    const isos=[...new Set(inv.map(r=>r.iso3))].sort((a,b)=>(byIso[a]?.country||a).localeCompare(byIso[b]?.country||b,"fr"));
+    $("#dIso").innerHTML=isos.map(i=>`<option value="${i}">${byIso[i]?.country||i}</option>`).join("");
+    $("#dIso").value=isos.includes("NER")?"NER":isos[0];
+    dmap=L.map("dmap",{scrollWheelZoom:false});
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:14,attribution:"© OpenStreetMap"}).addTo(dmap);
+    $("#dIso").onchange=loadDistricts; $("#dPop").onchange=drawLocalities;
+    $("#dKml").onclick=()=>dGeo&&saveFile(`${$("#dIso").value}_ADM2.kml`,toKML(dGeo,"unit_name"),"application/vnd.google-earth.kml+xml");
+    $("#dGeo").onclick=()=>dGeo&&saveFile(`${$("#dIso").value}_ADM2.geojson`,JSON.stringify(dGeo),"application/geo+json");
+    $("#dLoc").onclick=()=>{const fc={type:"FeatureCollection",features:dLoc.map(([n,p,la,lo])=>({type:"Feature",properties:{nom:n,population:p},geometry:{type:"Point",coordinates:[lo,la]}}))};
+      saveFile(`${$("#dIso").value}_localites.kml`,toKML(fc,"nom"),"application/vnd.google-earth.kml+xml");};
+    loadDistricts();});
+}
+function loadDistricts(){
+  const iso=$("#dIso").value, rows=INV.filter(r=>r.iso3===iso);
+  const LV={ADM2:"Districts (ADM2)",ADM3:"Sous-districts / communes (ADM3)",ADM4:"Localités administratives (ADM4)",LOCALITES:"Villes et villages (points)"};
+  $("#dInv").innerHTML=`<thead><tr><th>Niveau</th><th>Unités</th><th>Source</th><th>Fichier</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${LV[r.level]||r.level}</td><td>${(r.n_units||0).toLocaleString("fr-FR")}</td><td>${(r.source||"").slice(0,26)}</td><td>${r.url?`<a href="${r.url}" target="_blank" rel="noopener">GeoJSON</a>`:"boutons"}</td></tr>`).join("")+"</tbody>";
+  if(dLayer){dmap.removeLayer(dLayer);dLayer=null;} dGeo=null;
+  fetch(`geo/ADM2/${iso}.geojson`).then(r=>r.ok?r.json():null).catch(()=>null).then(g=>{dGeo=g;
+    if(g){dLayer=L.geoJSON(g,{style:{color:"#7a2e1f",weight:1,fillColor:"#e9b7a8",fillOpacity:.25},
+      onEachFeature:(f,l)=>l.bindTooltip(f.properties.unit_name,{sticky:true})}).addTo(dmap); dmap.fitBounds(dLayer.getBounds());
+      $("#dInfo").textContent=`${g.features.length} districts affichés (géométrie simplifiée pour le web ; fichiers complets via le lien GeoJSON).`;}
+    else{ $("#dInfo").textContent="Pas de limites ADM2 pour ce pays."; const f=gj.getLayers().find(l=>l.feature.properties.iso3===iso); if(f) dmap.fitBounds(f.getBounds()); }
+    $("#dKml").disabled=$("#dGeo").disabled=!g;});
+  fetch(`geo/localites/${iso}.json`).then(r=>r.ok?r.json():[]).catch(()=>[]).then(l=>{dLoc=l;drawLocalities();});
+}
+function drawLocalities(){
+  if(lLayer)dmap.removeLayer(lLayer); const mp=+$("#dPop").value;
+  lLayer=L.layerGroup(dLoc.filter(x=>x[1]>=mp).map(([n,p,la,lo])=>L.circleMarker([la,lo],{radius:Math.max(3,Math.log10(p)*2.2-5),color:"#1d2433",weight:1,fillOpacity:.7})
+    .bindTooltip(`${n} – ${p.toLocaleString("fr-FR")} hab.`))).addTo(dmap);
+}
+
 </script>
 </body>
 </html>

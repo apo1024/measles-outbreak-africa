@@ -23,6 +23,9 @@ Auteur : **Miracle Destine Apollon**, épidémiologiste de terrain et informatic
 | **Modèle B – machine learning** | XGBoost (forêt aléatoire en comparaison), importance des variables |
 | **Prévision** | Probabilité de flambée dans les **3 mois suivants** par pays, ensemble A+B, niveau de risque et alerte |
 | **Simulation** | Scénarios « et si ? » (cas, couverture MCV1/MCV2, IVR) |
+| **Analyses croisées** | Nuage X × Y avec corrélations de Spearman/Pearson et régression, tableaux croisés avec test du χ² et V de Cramér, matrice de corrélation, carte bivariée, comparaison de groupes (Kruskal-Wallis) – 31 variables, une année ou une période |
+| **Districts et localités** | Limites infranationales des 54 pays : 6 681 districts (ADM2, 53 pays), 20 912 sous-districts/communes (ADM3, 29 pays), 28 925 localités administratives (ADM4, 6 pays) et 11 966 villes et villages (GeoNames) ; export KML/GeoJSON |
+| **Surveillance par district** | Import d'un fichier de cas par district (CSV/Excel), rapprochement automatique des noms, seuil épidémique et alertes par district, cartes, courbes, analyse croisée entre districts |
 | **Mise à jour** | GitHub Action mensuelle : téléchargement des nouvelles données OMS, réentraînement, publication du tableau de bord |
 
 ### Performance (validation temporelle : apprentissage 2013-2022, test 2023-2026)
@@ -61,6 +64,18 @@ python -m measles_predict scenario NGA --cases 3000 --mcv1 50
 # Validation des modèles
 python -m measles_predict evaluate --rolling
 
+# Analyses croisées (corrélation + tableau croisé)
+python -m measles_predict cross --x mcv1 --y incidence_pm --logy --row ivr_class --col incidence_class --years 2023-2025
+python -m measles_predict cross --list            # liste des 31 variables
+
+# Limites infranationales et localités en KML
+python -m measles_predict boundaries COD                          # niveaux disponibles
+python -m measles_predict boundaries COD --level ADM2 --out rdc_districts.kml
+python -m measles_predict boundaries NER --level LOCALITES --out niger_localites.kml
+
+# Surveillance par district à partir de vos données
+python -m measles_predict districts mes_cas.csv --iso3 NER --name-col district --period-col period --cases-col cases --pop-col population
+
 # Application web interactive
 streamlit run app/streamlit_app.py
 
@@ -84,9 +99,9 @@ print(fc.head())
 
 ```
 measles_predict/   paquet Python (features, modèles A/B, pipeline, CLI)
-app/               application Streamlit
+app/               application Streamlit (7 onglets)
 docs/              tableau de bord GitHub Pages + documentation
-data/              table pays x mois, pays, IVR, limites simplifiées, schéma SQL
+data/              table pays x mois, tables annuelles, IVR, inventaire des limites, localités, exemples
 models/            modèles entraînés (A : JSON ; B : XGBoost JSON) + métadonnées
 outputs/           prévisions et performances
 scripts/           collecte, construction de la base, export du tableau de bord
@@ -98,7 +113,8 @@ tests/             tests automatisés (pytest)
 - OMS – données provisoires mensuelles rougeole/rubéole par pays (immunizationdata.who.int)
 - OMS GHO – couverture vaccinale WUENIC (MCV1, MCV2), cas annuels notifiés
 - Banque mondiale – World Development Indicators (CC BY 4.0)
-- geoBoundaries – limites administratives ADM0/ADM1 (ODbL / CC BY)
+- geoBoundaries – limites ADM0 à ADM4 ; priorité aux limites humanitaires OCHA COD-AB (gbHumanitarian), sinon gbOpen (ODbL / CC BY / CC BY-IGO)
+- GeoNames – villes et villages de plus de 1 000 habitants (CC BY 4.0)
 
 ## Limites importantes
 

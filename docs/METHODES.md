@@ -67,3 +67,9 @@ densité, urbanisation, population, sous-région.
 Données agrégées nationales et provisoires ; sous-notification variable ; pas de données infranationales
 publiques (le portail AFRO de liste linéaire était indisponible lors de la collecte) ; campagnes de vaccination
 de masse (AVS), mobilité et conflits non modélisés ; IVR pondéré a priori.
+
+## 10. Analyses croisées
+Unité : pays, pour une année ou la moyenne d'une période. Corrélations de Pearson (échelle affichée, log10 facultatif) et de Spearman ; régression linéaire simple ; tableaux de contingence avec test du χ² d'indépendance et V de Cramér ; test de Kruskal-Wallis entre groupes ; carte bivariée par tertiles. Classes : MCV1 (< 60, 60-79, 80-89, ≥ 90 %), incidence (< 5, 5-20, 20-50, 50-100, ≥ 100 cas/million), IVR (quartiles), risque prédit (< 15, 15-30, 30-50, ≥ 50 %). Il s'agit d'associations écologiques.
+
+## 11. Données infranationales
+Limites : geoBoundaries, version humanitaire (OCHA COD-AB) en priorité, sinon gbOpen ; géométries simplifiées. Localités : GeoNames « cities1000 » (lieux habités de plus de 1 000 habitants). Surveillance par district : seuil = max(minimum de cas ; moyenne + k × écart-type des périodes de la fenêtre), au moins 6 périodes d'historique ; « Vigilance » si cas ≥ 75 % du seuil. Rapprochement des noms : normalisation (accents, casse, ponctuation, mots génériques) puis similarité de chaînes (difflib) au-dessus d'un seuil réglable.

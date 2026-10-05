@@ -81,7 +81,45 @@ def main():
     (OUT / "model_a.json").write_text(json.dumps(model_a, ensure_ascii=False), encoding="utf-8")
     (OUT / "calculator_inputs.json").write_text(json.dumps(calc), encoding="utf-8")
     shutil.copy(REPO / "data" / "africa_adm0_simplified.geojson", OUT / "africa_adm0.geojson")
+    export_cross(fc)
+    export_subnational()
     print(f"Pages data exported to {OUT}")
+
+
+def export_cross(fc):
+    """Country x year panel for the in-browser cross-analysis."""
+    from measles_predict import cross
+    panel = cross.build_panel(forecast=fc[["iso3", "p_ensemble", "risk"]])
+    keep = ["iso3", "country_fr", "subregion", "year"] + [v for v in cross.VARIABLES if v in panel and v not in ("subregion",)]
+    rows = panel[keep].copy()
+    recs = [{k: clean(v) if isinstance(v, float) else v for k, v in r.items()} for r in rows.to_dict("records")]
+    meta = {k: {"label": lab, "kind": kind} for k, (lab, kind) in cross.VARIABLES.items() if k in keep or k == "subregion"}
+    (OUT / "panel.json").write_text(json.dumps({"variables": meta, "order": cross.CAT_ORDER, "rows": recs},
+                                               ensure_ascii=False), encoding="utf-8")
+
+
+def export_subnational():
+    """Districts (ADM2, simplified) and localities per country, plus the inventory of ADM1-ADM4 sources."""
+    from measles_predict import subnational as sn
+    inv = sn.inventory()
+    geo_dir = REPO / "docs" / "geo"
+    (geo_dir / "ADM2").mkdir(parents=True, exist_ok=True)
+    (geo_dir / "localites").mkdir(parents=True, exist_ok=True)
+    for iso in inv.loc[inv.level == "ADM2", "iso3"].unique():
+        f = geo_dir / "ADM2" / f"{iso}.geojson"
+        if f.exists():
+            continue
+        try:
+            g = sn.load_boundaries(iso, "ADM2")
+            g["geometry"] = g.geometry.simplify(0.002, preserve_topology=True)
+            g.to_file(f, driver="GeoJSON", COORDINATE_PRECISION=4)
+        except Exception as e:  # noqa: BLE001
+            print("ADM2", iso, e)
+    loc = pd.read_csv(sn.LOCALITIES)
+    for iso, g in loc.groupby("iso3"):
+        (geo_dir / "localites" / f"{iso}.json").write_text(
+            g[["name", "population", "lat", "lon"]].to_json(orient="values"), encoding="utf-8")
+    inv.to_json(OUT / "boundaries_inventory.json", orient="records", force_ascii=False)
 
 
 if __name__ == "__main__":

@@ -20,6 +20,8 @@ Adresse : **https://apo1024.github.io/measles-outbreak-africa/**
 | Carte | choisir la couche : probabilité de flambée à 3 mois, IVR ou couverture MCV1 ; survoler un pays pour ses valeurs ; cliquer pour ouvrir sa fiche |
 | Fiche pays | dernier mois consolidé, cas, seuil épidémique, probabilités A, B et ensemble, niveau de risque, IVR, MCV1/MCV2 et courbe épidémique des 6 dernières années |
 | Classement | cliquer sur un en-tête pour trier ; la colonne « Qualité » signale les données anciennes (> 3 mois) ou incomplètes |
+| Analyses croisées | nuage X × Y (31 variables), Spearman/Pearson, tableau croisé avec χ² |
+| Districts et localités | carte des districts et des villes, téléchargement KML/GeoJSON |
 | Calculateur (modèle A) | choisir un pays, modifier les cas, MCV1, MCV2 ou l'IVR : la probabilité est recalculée instantanément |
 
 **Lire une prévision.** « 26 % » signifie que, parmi les situations passées comparables, environ un quart ont été
@@ -50,13 +52,38 @@ pip install -r requirements.txt
 streamlit run app/streamlit_app.py
 ```
 
-Le navigateur s'ouvre sur http://localhost:8501. Cinq onglets :
+Le navigateur s'ouvre sur http://localhost:8501. Sept onglets :
 
 1. **Tableau de bord** – carte (probabilité, IVR, MCV1, incidence 12 mois), classement complet, téléchargement CSV.
 2. **Profil pays** – courbe épidémique avec seuil et flambées, probabilités rétrospectives des modèles, évolution de l'IVR et de ses 5 domaines.
-3. **Simulateur** – scénarios « et si ? » avec les deux modèles (A et B) et l'ensemble.
-4. **Performance** – métriques de validation, AUC par année, odds ratios du modèle A, importance des variables du modèle B.
-5. **Méthodes** – résumé méthodologique.
+3. **Analyses croisées** – voir ci-dessous.
+4. **Districts & localités** – voir ci-dessous.
+5. **Simulateur** – scénarios « et si ? » avec les deux modèles (A et B) et l'ensemble.
+6. **Performance** – métriques de validation, AUC par année, odds ratios du modèle A, importance des variables du modèle B.
+7. **Méthodes** – résumé méthodologique.
+
+### Analyses croisées
+
+Choisir une année ou une moyenne sur plusieurs années, et les sous-régions. Cinq vues :
+
+| Vue | Ce qu'elle fait |
+|---|---|
+| Nuage de points X × Y | 31 variables ; couleur par sous-région ou catégorie ; taille = population ; échelle log ; régression ; Spearman, Pearson, R² |
+| Tableau croisé | deux variables catégorielles (classe d'IVR, d'incidence, de MCV1, risque prédit, flambée oui/non, sous-région) ; effectifs, % ou moyenne d'une 3e variable ; χ² et V de Cramér ; liste des pays par cellule |
+| Matrice de corrélation | Spearman ou Pearson entre les variables choisies |
+| Carte bivariée | tertiles croisés de deux variables (ex. IVR × incidence) ; pays « haut-haut » |
+| Comparaison de groupes | boîtes à moustaches et test de Kruskal-Wallis |
+
+### Districts et localités
+
+1. Choisir le pays et le niveau : ADM1 (régions), ADM2 (districts), ADM3 (communes), ADM4 (localités administratives), ou importer ses propres limites (KML, GeoJSON, shapefile zippé : zones de santé, aires de santé…).
+2. Afficher les villes et villages (filtre de population) sur fond OpenStreetMap.
+3. Télécharger les limites en KML/GeoJSON, les localités en KML, la liste des localités par district (CSV) et un modèle de fichier à remplir.
+4. Importer un fichier de cas par district (CSV/Excel) : colonnes district et cas, et facultativement période, population et autres variables. Les noms sont rapprochés automatiquement (accents, majuscules, « DS », « zone de santé »… ignorés ; tolérance réglable).
+5. Avec une colonne période : seuil épidémique par district (moyenne + k écarts-types sur la fenêtre choisie, minimum de cas), statut **Flambée / Vigilance / Normal**, carte, courbe par district, export des alertes.
+6. Analyse croisée entre districts (ex. couverture vaccinale × incidence).
+
+Un fichier d'exemple **simulé** est fourni : `data/exemples/EXEMPLE_SIMULE_districts_NER.csv` (format uniquement, données fictives).
 
 Déploiement public optionnel : Streamlit Community Cloud (https://share.streamlit.io) → « New app » → dépôt
 `apo1024/measles-outbreak-africa`, fichier `app/streamlit_app.py`.
@@ -76,6 +103,11 @@ Toutes les commandes s'exécutent à la racine du dépôt, environnement activé
 | `python -m measles_predict evaluate --rolling` | validation temporelle et à origine glissante |
 | `python -m measles_predict train` | réentraîne les modèles sur toutes les données |
 | `python scripts/update_all.py` | mise à jour complète : téléchargement, base, modèles, prévisions, tableau de bord |
+| `python -m measles_predict cross --x mcv1 --y incidence_pm --logy` | corrélation entre deux variables (pays) |
+| `python -m measles_predict cross --row ivr_class --col risk` | tableau croisé + χ² |
+| `python -m measles_predict boundaries COD --level ADM2 --out rdc.kml` | limites des districts en KML |
+| `python -m measles_predict boundaries NER --level LOCALITES` | villes et villages en KML |
+| `python -m measles_predict districts cas.csv --iso3 NER --pop-col population` | alertes par district |
 
 ### Colonnes du fichier de prévision
 

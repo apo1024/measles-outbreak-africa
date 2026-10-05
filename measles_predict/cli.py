@@ -5,6 +5,9 @@
     python -m measles_predict scenario NGA --cases 800 --mcv1 60
     python -m measles_predict evaluate            # temporal validation of models A and B
     python -m measles_predict train               # refit on all data and save to models/
+    python -m measles_predict cross --x ivr_score --y incidence_pm --years 2023-2025
+    python -m measles_predict boundaries NER --level ADM2 --out niger_districts.kml
+    python -m measles_predict districts data/exemples/EXEMPLE_SIMULE_districts_NER.csv --iso3 NER
 """
 from __future__ import annotations
 
@@ -113,6 +116,78 @@ def cmd_train(a):
     print(f"Modèles réentraînés sur {n} lignes (données jusqu'à {last}). Seuils : {json.dumps(thr)}")
 
 
+def _years(txt: str):
+    if "-" in txt:
+        a, b = txt.split("-")
+        return list(range(int(a), int(b) + 1))
+    return [int(txt)]
+
+
+def cmd_cross(a):
+    from . import cross
+    panel = cross.build_panel()
+    view = cross.period_view(panel, _years(a.years))
+    if a.x:
+        r = cross.correlate(view, a.x, a.y, a.logx, a.logy)
+        print(f"{cross.label(a.x)} × {cross.label(a.y)} – années {a.years} – n = {r.get('n')} pays")
+        if r.get("n", 0) >= 4:
+            print(f"  Spearman rho = {r['spearman_rho']:.3f} (p = {r['spearman_p']:.4f})")
+            print(f"  Pearson  r   = {r['pearson_r']:.3f} (p = {r['pearson_p']:.4f}) ; R² = {r['r2']:.3f}")
+    if a.row:
+        t, test = cross.crosstab(view, a.row, a.col, a.value)
+        print()
+        print(f"Tableau croisé : {cross.label(a.row)} × {cross.label(a.col)}")
+        print(t.round(2).to_string())
+        if test:
+            print(f"Chi² = {test['chi2']:.2f}, ddl = {test['dof']}, p = {test['p']:.4f}, V de Cramér = {test['cramers_v']:.3f}")
+    if a.list:
+        for k, (lab, kind) in cross.VARIABLES.items():
+            print(f"  {k:28s} {kind:4s} {lab}")
+    if a.out:
+        view.to_csv(a.out, index=False)
+        print(f"Tableau des pays enregistré : {a.out}")
+
+
+def cmd_boundaries(a):
+    from . import subnational as sn
+    iso = a.iso3.upper()
+    if a.level is None:
+        inv = sn.inventory()
+        print(inv[inv.iso3 == iso][["level", "release", "n_units", "source", "license"]].to_string(index=False))
+        return
+    if a.level == "LOCALITES":
+        g = sn.load_localities(iso).rename(columns={"name": "nom"})
+        data = sn.to_kml_bytes(g, "nom")
+    else:
+        g = sn.load_boundaries(iso, a.level)
+        data = sn.to_kml_bytes(g)
+    out = Path(a.out or f"{iso}_{a.level}.kml")
+    if out.suffix.lower() == ".geojson":
+        out.write_text(g.to_json(), encoding="utf-8")
+    else:
+        out.write_bytes(data)
+    print(f"{len(g)} unités -> {out}")
+
+
+def cmd_districts(a):
+    from . import subnational as sn
+    df = pd.read_csv(a.file, sep=None, engine="python")
+    units = sn.load_boundaries(a.iso3.upper(), a.level)
+    joined, m = sn.join_data(units.drop(columns="geometry"), df, a.name_col, a.cutoff)
+    print(f"Rapprochement des noms : {m.match.notna().sum()}/{len(m)} trouvés")
+    if m.match.isna().any():
+        print("  Non trouvés :", ", ".join(m.loc[m.match.isna(), "source"].head(20)))
+    allp, last = sn.district_surveillance(joined[joined.unit_name_matched.notna()], "unit_name_matched",
+                                          a.period_col, a.cases_col, a.pop_col, window=a.window,
+                                          k_sd=a.k_sd, min_cases=a.min_cases)
+    print(last.status.value_counts().to_string())
+    cols = ["unit", "period", "cases", "threshold", "ratio_to_threshold", "status"]
+    print(last[cols].head(a.top).to_string(index=False, float_format=lambda x: f"{x:.2f}"))
+    if a.out:
+        last.to_csv(a.out, index=False)
+        print(f"Alertes enregistrées : {a.out}")
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="measles_predict",
                                 description="Surveillance et prédiction des flambées de rougeole en Afrique")
@@ -140,6 +215,38 @@ def main(argv=None):
     e.set_defaults(func=cmd_evaluate)
     t = sp.add_parser("train", help="réentraîner et sauvegarder les modèles")
     t.set_defaults(func=cmd_train)
+    x = sp.add_parser("cross", help="analyses croisées entre pays")
+    x.add_argument("--years", default="2023-2025", help="année (2025) ou période (2023-2025)")
+    x.add_argument("--x")
+    x.add_argument("--y")
+    x.add_argument("--logx", action="store_true")
+    x.add_argument("--logy", action="store_true")
+    x.add_argument("--row", help="variable catégorielle en lignes (ex. ivr_class)")
+    x.add_argument("--col", help="variable catégorielle en colonnes (ex. incidence_class)")
+    x.add_argument("--value", help="variable numérique à moyenner dans les cellules")
+    x.add_argument("--list", action="store_true", help="liste des variables disponibles")
+    x.add_argument("--out", help="CSV du tableau des pays")
+    x.set_defaults(func=cmd_cross)
+    b = sp.add_parser("boundaries", help="limites infranationales (KML/GeoJSON)")
+    b.add_argument("iso3")
+    b.add_argument("--level", choices=["ADM1", "ADM2", "ADM3", "ADM4", "LOCALITES"])
+    b.add_argument("--out")
+    b.set_defaults(func=cmd_boundaries)
+    ds = sp.add_parser("districts", help="surveillance par district à partir d'un fichier CSV")
+    ds.add_argument("file")
+    ds.add_argument("--iso3", required=True)
+    ds.add_argument("--level", default="ADM2")
+    ds.add_argument("--name-col", dest="name_col", default="district")
+    ds.add_argument("--period-col", dest="period_col", default="period")
+    ds.add_argument("--cases-col", dest="cases_col", default="cases")
+    ds.add_argument("--pop-col", dest="pop_col", default=None)
+    ds.add_argument("--window", type=int, default=24)
+    ds.add_argument("--k-sd", dest="k_sd", type=float, default=2.0)
+    ds.add_argument("--min-cases", dest="min_cases", type=int, default=5)
+    ds.add_argument("--cutoff", type=float, default=0.82)
+    ds.add_argument("--top", type=int, default=15)
+    ds.add_argument("--out")
+    ds.set_defaults(func=cmd_districts)
     a = p.parse_args(argv)
     a.func(a)
 

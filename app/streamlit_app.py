@@ -20,6 +20,9 @@ sys.path.insert(0, str(REPO))
 from measles_predict.features import LABELS, make_features  # noqa: E402
 from measles_predict.models import load_bundle  # noqa: E402
 from measles_predict.pipeline import RISK_LABELS, forecast, latest_rows  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from tab_cross import render_cross  # noqa: E402
+from tab_districts import render_districts  # noqa: E402
 
 st.set_page_config(page_title="Rougeole Afrique – Prédiction des flambées", page_icon="🩺", layout="wide")
 RISK_COLORS = {"Faible": "#7fbf7b", "Modéré": "#fec44f", "Élevé": "#fe9929", "Très élevé": "#cc4c02"}
@@ -49,8 +52,15 @@ st.title("🩺 Rougeole en Afrique – surveillance et prédiction des flambées
 st.caption(f"Données OMS jusqu'à {meta['data_until']} · modèles entraînés le {meta['created']} · "
            "Auteur : Miracle Destine Apollon (info@idreamlore.com)")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["🗺️ Tableau de bord", "📈 Profil pays", "🧪 Simulateur",
-                                        "✅ Performance", "📘 Méthodes"])
+tab1, tab2, tab_x, tab_dist, tab3, tab4, tab5 = st.tabs([
+    "🗺️ Tableau de bord", "📈 Profil pays", "🔀 Analyses croisées", "📍 Districts & localités",
+    "🧪 Simulateur", "✅ Performance", "📘 Méthodes"])
+
+with tab_x:
+    render_cross(fc, geo, NAMES)
+
+with tab_dist:
+    render_districts(NAMES)
 
 # ------------------------------------------------------------------ dashboard
 with tab1:

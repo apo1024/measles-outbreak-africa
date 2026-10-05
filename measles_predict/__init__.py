@@ -2,4 +2,4 @@
 
 Author: Miracle Destine Apollon (info@idreamlore.com)
 """
-__version__ = "1.0.0"
+__version__ = "1.1.0"
