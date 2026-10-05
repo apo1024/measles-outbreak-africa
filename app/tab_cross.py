@@ -14,8 +14,12 @@ SR_COLORS = {"Afrique de l'Ouest": "#2a78b5", "Afrique centrale": "#d9534f", "Af
 
 
 @st.cache_data
-def _panel(fc_small: pd.DataFrame) -> pd.DataFrame:
+def _panel(fc_small: pd.DataFrame, version: tuple) -> pd.DataFrame:
     return cross.build_panel(forecast=fc_small)
+
+
+def _data_version() -> tuple:
+    return tuple((f.name, f.stat().st_mtime_ns) for f in sorted(cross.DATA.glob("*.csv")))
 
 
 def _fmt_p(p):
@@ -23,7 +27,7 @@ def _fmt_p(p):
 
 
 def render_cross(fc: pd.DataFrame, geo: dict, names: dict):
-    panel = _panel(fc[["iso3", "p_ensemble", "risk"]].copy())
+    panel = _panel(fc[["iso3", "p_ensemble", "risk"]].copy(), _data_version())
     st.markdown("Croisez n'importe quelle variable épidémiologique, vaccinale, de vulnérabilité, "
                 "socio-économique ou de prédiction. Unité d'analyse : le pays (une année ou une moyenne sur plusieurs années).")
 

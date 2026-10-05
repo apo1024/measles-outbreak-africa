@@ -28,8 +28,19 @@ st.set_page_config(page_title="Rougeole Afrique – Prédiction des flambées", 
 RISK_COLORS = {"Faible": "#7fbf7b", "Modéré": "#fec44f", "Élevé": "#fe9929", "Très élevé": "#cc4c02"}
 
 
+def files_version(*paths) -> tuple:
+    """Cache key that changes whenever a data or model file is updated (e.g. after a git pull
+    on Streamlit Cloud or the monthly refresh), so cached objects are never stale."""
+    files = [p for path in paths for p in (sorted(path.glob("*")) if path.is_dir() else [path])]
+    return tuple((f.name, f.stat().st_mtime_ns, f.stat().st_size) for f in files if f.is_file())
+
+
+DATA_FILES = [REPO / "data" / f for f in ("model_inputs.csv", "countries.csv", "vulnerability_index.csv",
+                                          "africa_adm0_simplified.geojson")]
+
+
 @st.cache_data
-def load_data():
+def load_data(version: tuple):
     raw = pd.read_csv(REPO / "data" / "model_inputs.csv")
     countries = pd.read_csv(REPO / "data" / "countries.csv")
     ivr = pd.read_csv(REPO / "data" / "vulnerability_index.csv")
@@ -38,12 +49,12 @@ def load_data():
 
 
 @st.cache_resource
-def load_models():
+def load_models(version: tuple):
     return load_bundle(REPO / "models")
 
 
-raw, d, countries, ivr, geo = load_data()
-model_a, model_b, meta = load_models()
+raw, d, countries, ivr, geo = load_data(files_version(*DATA_FILES))
+model_a, model_b, meta = load_models(files_version(REPO / "models"))
 NAMES = countries.set_index("iso3")["country_fr"].to_dict()
 fc = forecast(d, model_a, model_b, meta["thresholds"])
 fc.insert(1, "Pays", fc.iso3.map(NAMES))
