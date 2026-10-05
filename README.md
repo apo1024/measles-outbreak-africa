@@ -6,6 +6,8 @@
 [![tests](https://github.com/apo1024/measles-outbreak-africa/actions/workflows/tests.yml/badge.svg)](https://github.com/apo1024/measles-outbreak-africa/actions/workflows/tests.yml)
 
 - 🌐 **Tableau de bord en ligne** : https://apo1024.github.io/measles-outbreak-africa/
+- 🧪 **Application interactive (Streamlit)** : https://apo1024-measles-outbreak-africa-appstreamlit-app-wnb8pu.streamlit.app/
+  [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://apo1024-measles-outbreak-africa-appstreamlit-app-wnb8pu.streamlit.app/)
 - 📘 **Guide d'utilisation** : [docs/GUIDE_UTILISATION.md](docs/GUIDE_UTILISATION.md)
 - 🔬 **Méthodes** : [docs/METHODES.md](docs/METHODES.md)
 
@@ -76,7 +78,7 @@ python -m measles_predict boundaries NER --level LOCALITES --out niger_localites
 # Surveillance par district à partir de vos données
 python -m measles_predict districts mes_cas.csv --iso3 NER --name-col district --period-col period --cases-col cases --pop-col population
 
-# Application web interactive
+# Application web interactive (en local ; version en ligne : https://apo1024-measles-outbreak-africa-appstreamlit-app-wnb8pu.streamlit.app/)
 streamlit run app/streamlit_app.py
 
 # Mise à jour complète (données -> base -> modèles -> prévisions -> tableau de bord)

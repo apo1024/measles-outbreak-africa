@@ -33,6 +33,9 @@ et spécificité.
 
 ## 2. Application interactive (Streamlit)
 
+**Version en ligne, sans installation** : https://apo1024-measles-outbreak-africa-appstreamlit-app-wnb8pu.streamlit.app/
+(hébergement gratuit : après quelques jours sans visite, le premier chargement peut prendre ~30 secondes).
+
 ### Installation (une seule fois)
 
 Prérequis : Python 3.10 ou plus récent, Git.
