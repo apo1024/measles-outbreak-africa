@@ -1,9 +1,9 @@
 {
   "target": "outbreak_next3",
-  "trained_on_rows": 6623,
-  "data_until": "2026-09",
+  "trained_on_rows": 6656,
+  "data_until": "2026-10",
   "outbreak_definition": "cases(t) > max(10, mean + 2 SD of previous 24 months)",
-  "created": "2026-10-04",
+  "created": "2026-10-15",
   "features_b": [
     "log_cases",
     "log_lag1",
@@ -29,8 +29,8 @@
     "sr_Afrique de l'Ouest"
   ],
   "thresholds": {
-    "A": 0.19195937816656344,
-    "B": 0.212739497423172,
-    "Ensemble": 0.17402084005460575
+    "A": 0.19064527885838395,
+    "B": 0.21497569978237152,
+    "Ensemble": 0.17283742812596817
   }
 }
